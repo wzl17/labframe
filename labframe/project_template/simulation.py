@@ -1,48 +1,50 @@
-"""Editable simulation or experiment-acquisition hook."""
+"""Example simulations selected by the configuration."""
 
 from pathlib import Path
 
 import numpy as np
+from qutip import basis, mesolve, sigmax, sigmaz
 
 
 def run_simulation(config: dict, results_dir: Path) -> None:
-    """Generate noisy Rabi data and save it in the supplied results directory."""
-    settings = config["simulation"]
-    duration_s = float(settings["duration_s"])
-    points = int(settings["points"])
-    rabi_frequency_hz = float(settings["rabi_frequency_hz"])
-    detuning_hz = float(settings.get("detuning_hz", 0.0))
-    contrast = float(settings.get("contrast", 1.0))
-    offset = float(settings.get("offset", 0.0))
-    noise_std = float(settings.get("noise_std", 0.0))
-    random_seed = int(config.get("random_seed", 0))
-
-    if duration_s <= 0.0:
-        raise ValueError("simulation.duration_s must be positive")
-    if points < 4:
-        raise ValueError("simulation.points must be at least 4")
-    if rabi_frequency_hz <= 0.0:
-        raise ValueError("simulation.rabi_frequency_hz must be positive")
-    if not 0.0 < contrast <= 1.0:
-        raise ValueError("simulation.contrast must be in (0, 1]")
-    if noise_std < 0.0:
-        raise ValueError("simulation.noise_std must be non-negative")
-
-    time_s = np.linspace(0.0, duration_s, points)
-    effective_frequency_hz = np.hypot(rabi_frequency_hz, detuning_hz)
-    driven_fraction = rabi_frequency_hz**2 / effective_frequency_hz**2
-    probability = offset + 0.5 * contrast * driven_fraction * (
-        1.0 - np.cos(2.0 * np.pi * effective_frequency_hz * time_s)
+    """Select and run the simulation named by ``simulation.type``."""
+    simulation = config["simulation"]
+    simulation_type = simulation.get(
+        "type",
+        simulation.get("model", "rabi_flop"),
     )
 
-    if noise_std:
-        probability += np.random.default_rng(random_seed).normal(0.0, noise_std, size=points)
-    probability = np.clip(probability, 0.0, 1.0)
+    if simulation_type == "rabi_flop":
+        rabi_flop(simulation, results_dir)
+    else:
+        raise ValueError(f"Unknown simulation type: {simulation_type!r}")
+
+
+def rabi_flop(simulation: dict, results_dir: Path) -> None:
+    """Simulate a coherently driven two-level system and save the result."""
+    duration_s = float(simulation["duration_s"])
+    points = int(simulation["points"])
+    rabi_frequency_hz = float(simulation["rabi_frequency_Hz"])
+    detuning_hz = float(simulation.get("detuning_Hz", 0.0))
+
+    angular_rabi_frequency = 2.0 * np.pi * rabi_frequency_hz
+    angular_detuning = 2.0 * np.pi * detuning_hz
+    hamiltonian = 0.5 * (angular_rabi_frequency * sigmax() + angular_detuning * sigmaz())
+    initial_state = basis(2, 0)
+    excited_state_projector = basis(2, 1).proj()
+    time_s = np.linspace(0.0, duration_s, points)
+
+    result = mesolve(
+        hamiltonian,
+        initial_state,
+        time_s,
+        c_ops=[],
+        e_ops=[excited_state_projector],
+    )
 
     results_dir.mkdir(parents=True, exist_ok=True)
     np.savez(
-        results_dir / "rabi_data.npz",
+        results_dir / "rabi_flop.npz",
         time_s=time_s,
-        excited_state_probability=probability,
+        excited_state_probability=np.asarray(result.expect[0], dtype=float),
     )
-    print(f"Saved {points} Rabi samples; expected oscillation frequency {effective_frequency_hz:.6g} Hz")

@@ -1,6 +1,0 @@
-version: 1
-hooks:
-  simulation: simulation.py:run_simulation
-  fit: fit_results.py:fit_results
-  plot: plot_results.py:plot_results
-  summary: build_summary.py:build_summary

@@ -4,19 +4,36 @@ import os
 import re
 import shutil
 import subprocess
+import tomllib
 from pathlib import Path
 
-PROJECT_MARKER = "labframe.yaml"
+PROJECT_FILE = "pyproject.toml"
 _TEMPLATE_SUFFIX = ".tmpl"
 
 
+def load_project_settings(project_root: Path) -> dict[str, str]:
+    """Load and validate the small ``[tool.labframe]`` hook table."""
+    path = project_root / PROJECT_FILE
+    try:
+        document = tomllib.loads(path.read_text(encoding="utf-8"))
+    except FileNotFoundError as error:
+        raise FileNotFoundError(f"Labframe project file not found: {path}") from error
+    settings = document.get("tool", {}).get("labframe")
+    if not isinstance(settings, dict):
+        raise ValueError(f"Missing [tool.labframe] table in {path}")
+    return settings
+
+
 def find_project_root(start: Path) -> Path:
-    """Find the nearest parent containing the Labframe project marker."""
+    """Find the nearest parent containing a Labframe-enabled pyproject.toml."""
     candidate = start.resolve()
     for directory in (candidate, *candidate.parents):
-        if (directory / PROJECT_MARKER).is_file():
-            return directory
-    raise FileNotFoundError(f"No {PROJECT_MARKER} found at or above {candidate}")
+        try:
+            load_project_settings(directory)
+        except (FileNotFoundError, ValueError, tomllib.TOMLDecodeError):
+            continue
+        return directory
+    raise FileNotFoundError(f"No Labframe-enabled {PROJECT_FILE} found at or above {candidate}")
 
 
 def _normalized_name(target: Path, requested_name: str | None) -> str:

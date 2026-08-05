@@ -1,10 +1,6 @@
 simulation:
+  type: rabi_flop
   duration_s: 200.0e-6
   points: 1001
-  rabi_frequency_hz: 50.0e3
-  detuning_hz: 0.0
-  contrast: 0.96
-  offset: 0.01
-  noise_std: 0.015
-
-random_seed: 20260805
+  rabi_frequency_Hz: 50.0e+3
+  detuning_Hz: 0.0

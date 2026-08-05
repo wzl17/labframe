@@ -22,7 +22,6 @@ include = ["labframe*"]
 labframe = [
     "project_template/**/*",
     "project_template/.gitignore",
-    "project_template/reports/.gitkeep",
     "project_template/runs/.gitkeep",
 ]
 
@@ -31,10 +30,11 @@ labframe = ["**/__pycache__/*", "**/*.pyc", "**/*.pyo"]
 
 [dependency-groups]
 dev = [
+    "lmfit>=1.3",
     "matplotlib>=3.10",
     "numpy>=2.2",
+    "qutip>=5.3",
     "ruff>=0.16.1",
-    "scipy>=1.15",
 ]
 
 [tool.ruff]

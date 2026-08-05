@@ -1,8 +1,12 @@
+import importlib.util
 import json
 import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
+
+import numpy as np
 
 from labframe.project import initialize_project
 from labframe.runner import run_project
@@ -10,6 +14,16 @@ from labframe.runner import run_project
 
 def _git(project_root: Path, *arguments: str) -> None:
     subprocess.run(["git", *arguments], cwd=project_root, check=True, capture_output=True)
+
+
+def _load_module(name: str, path: Path):
+    spec = importlib.util.spec_from_file_location(name, path)
+    if spec is None or spec.loader is None:
+        raise ImportError(f"Cannot load {path}")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
 
 
 class RunnerTest(unittest.TestCase):
@@ -35,7 +49,7 @@ class RunnerTest(unittest.TestCase):
         )
         return project_root
 
-    def test_no_commit_run_executes_simulation_fit_plot_and_summary(self) -> None:
+    def test_no_commit_run_executes_rabi_plot_and_summary_and_supports_lmfit(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
             project_root = self._project(Path(temporary_directory))
             starting_commit = subprocess.run(
@@ -55,15 +69,43 @@ class RunnerTest(unittest.TestCase):
             )
 
             meta = json.loads((run_dir / "meta.json").read_text(encoding="utf-8"))
-            fit = json.loads((run_dir / "results" / "fit.json").read_text(encoding="utf-8"))
             self.assertEqual(meta["status"], "completed")
             self.assertEqual(meta["git_commit"], starting_commit)
-            self.assertAlmostEqual(fit["oscillation_frequency_hz"], 50_000.0, delta=500.0)
-            self.assertTrue((run_dir / "results" / "rabi_data.npz").is_file())
-            self.assertTrue((run_dir / "results" / "rabi_fit.npz").is_file())
-            self.assertTrue((run_dir / "figures" / "rabi_fit.png").is_file())
+            simulation_path = run_dir / "results" / "rabi_flop.npz"
+            fit_path = run_dir / "results" / "rabi_flop_fit.npz"
+            self.assertTrue(simulation_path.is_file())
+            self.assertTrue(fit_path.is_file())
+            self.assertTrue((run_dir / "figures" / "combined_results.png").is_file())
             self.assertTrue((run_dir / "summary.md").is_file())
             self.assertTrue((run_dir / "summary.html").is_file())
+
+            with (
+                np.load(simulation_path, allow_pickle=False) as simulation,
+                np.load(fit_path, allow_pickle=False) as fitted,
+            ):
+                self.assertEqual(simulation.files, ["time_s", "excited_state_probability"])
+                self.assertEqual(fitted.files, simulation.files)
+                np.testing.assert_array_equal(fitted["time_s"], simulation["time_s"])
+                time_s = simulation["time_s"]
+                probability = simulation["excited_state_probability"]
+                fitted_probability = fitted["excited_state_probability"]
+            self.assertEqual(fitted_probability.shape, probability.shape)
+
+            fit_models = _load_module("generated_fit_models", project_root / "fit_models.py")
+            parameters = fit_models.sine_model.guess(probability, x=time_s)
+            fit = fit_models.sine_model.fit(probability, parameters, x=time_s)
+            self.assertTrue(fit.success)
+            self.assertAlmostEqual(fit.params["frequency"].value, 50_000.0, delta=50.0)
+            for name in (
+                "linear_model",
+                "gaussian_model",
+                "exponential_model",
+                "power_law_model",
+            ):
+                self.assertTrue(hasattr(fit_models, name))
+            summary = (run_dir / "summary.md").read_text(encoding="utf-8")
+            self.assertIn("results/rabi_flop.npz", summary)
+            self.assertIn("results/rabi_flop_fit.npz", summary)
             self.assertEqual(
                 subprocess.run(
                     ["git", "rev-parse", "HEAD"],
@@ -74,6 +116,29 @@ class RunnerTest(unittest.TestCase):
                 ).stdout.strip(),
                 starting_commit,
             )
+
+    def test_plot_rejects_results_with_different_x_coordinates(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            project_root = Path(temporary_directory)
+            initialize_project(project_root, sync=False, initialize_git=False)
+            run_dir = project_root / "runs" / "test"
+            results_dir = run_dir / "results"
+            results_dir.mkdir(parents=True)
+            x_values = np.linspace(0.0, 1.0, 11)
+            np.savez(
+                results_dir / "first.npz",
+                time_s=x_values,
+                excited_state_probability=x_values,
+            )
+            np.savez(
+                results_dir / "second.npz",
+                time_s=x_values + 0.1,
+                excited_state_probability=x_values,
+            )
+
+            plot_module = _load_module("generated_plot_results", project_root / "plot_results.py")
+            with self.assertRaisesRegex(ValueError, "x coordinates"):
+                plot_module.plot_results(run_dir)
 
     def test_no_commit_run_rejects_dirty_project(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:

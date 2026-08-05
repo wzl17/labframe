@@ -7,16 +7,15 @@
 - `labframe run` without a configuration uses `configs/default.yaml`; never execute it automatically.
 - Do not perform broad refactoring unless explicitly requested.
 - The generated simulation or acquisition hook must read a configuration and write into the supplied `results/` directory.
-- The generated fit hook must read saved data and write fit products into `results/`.
+- Generated `fit_models.py` contains reusable lmfit models and a configured result-fitting hook.
 - Plotting must read from `results/` and write into `figures/`.
+- Keep Matplotlib presentation settings in the single generated `plot_results.py` file.
 - Summary generation must use saved results and figures.
 - Fitting, plotting, and summary generation must never rerun the simulation or experiment.
-- Keep Matplotlib presentation settings in generated `plot_style.py` files.
 - Do not modify completed run folders.
 - Commit mode is the default; use `labframe run --no-commit` only with a clean generated-project working tree.
 - A committed run must represent the source state at launch, not edits made while the run was active.
 - Never push, amend, rebase, reset, or rewrite existing Git history.
-- Root-level `reports/` in generated projects contains multi-run reports, not per-run summaries.
 - Do not add dependencies or workflow tools without a concrete need.
 - In Markdown, use `$...$` for inline math and `$$...$$` on separate lines for display math.
 - Never use `\\(...\\)` or `\\[...\\]` as math delimiters in Markdown.

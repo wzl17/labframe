@@ -11,6 +11,7 @@ import sys
 import tarfile
 import tempfile
 import time
+import tomllib
 import uuid
 from contextlib import contextmanager, redirect_stderr, redirect_stdout
 from datetime import datetime
@@ -18,11 +19,11 @@ from pathlib import Path
 
 import yaml
 
-from labframe.project import PROJECT_MARKER
+from labframe.project import PROJECT_FILE, load_project_settings
 
 DEFAULT_HOOKS = {
     "simulation": ("simulation.py", "run_simulation"),
-    "fit": ("fit_results.py", "fit_results"),
+    "fit": ("fit_models.py", "fit_results"),
     "plot": ("plot_results.py", "plot_results"),
     "summary": ("build_summary.py", "build_summary"),
 }
@@ -103,16 +104,15 @@ def _project_on_path(project_root: Path):
 
 
 def _hook_spec(project_root: Path, hook_name: str) -> tuple[str, str]:
-    marker = yaml.safe_load((project_root / PROJECT_MARKER).read_text(encoding="utf-8"))
-    hooks = marker.get("hooks", {}) if isinstance(marker, dict) else {}
-    configured = hooks.get(hook_name) if isinstance(hooks, dict) else None
+    settings = load_project_settings(project_root)
+    configured = settings.get(hook_name)
     if configured is None:
         return DEFAULT_HOOKS[hook_name]
     if not isinstance(configured, str) or configured.count(":") != 1:
-        raise ValueError(f"hooks.{hook_name} in {PROJECT_MARKER} must use file.py:function syntax")
+        raise ValueError(f"tool.labframe.{hook_name} in {PROJECT_FILE} must use file.py:function syntax")
     filename, function_name = configured.split(":", maxsplit=1)
     if not filename or not function_name:
-        raise ValueError(f"hooks.{hook_name} in {PROJECT_MARKER} must use file.py:function syntax")
+        raise ValueError(f"tool.labframe.{hook_name} in {PROJECT_FILE} must use file.py:function syntax")
     return filename, function_name
 
 
@@ -218,8 +218,10 @@ def run_project(
 ) -> Path:
     """Execute the complete project pipeline and return the immutable run folder."""
     project_root = project_root.resolve()
-    if not (project_root / PROJECT_MARKER).is_file():
-        raise FileNotFoundError(f"Project marker not found: {project_root / PROJECT_MARKER}")
+    try:
+        load_project_settings(project_root)
+    except (FileNotFoundError, ValueError, tomllib.TOMLDecodeError) as error:
+        raise ValueError(f"Not a Labframe project: {project_root}") from error
     config_path, config_relative = _config_path(project_root, config)
     starting_commit = _git(project_root, "rev-parse", "HEAD")
     dirty = _git(project_root, "status", "--porcelain")

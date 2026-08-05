@@ -1,8 +1,6 @@
 # Labframe
 
-Labframe is a small, installable command-line tool for reproducible simulation and experiment projects. It initializes an independent Git/uv repository containing editable files for simulation or acquisition, fitting, plotting, summarizing, and configuration. It then orchestrates those files into immutable run folders.
-
-With sibling repositories, the intended local layout is:
+Labframe initializes and runs small, independent simulation or experiment repositories. A local layout can be:
 
 ```text
 projects/
@@ -11,16 +9,16 @@ projects/
 └── microwave-experiment/
 ```
 
-## Install or run locally with uv
+## Install locally
 
-From the directory containing `labframe/`:
+From `projects/`:
 
 ```bash
 uv tool install --editable ./labframe
 labframe --version
 ```
 
-For development without a tool installation:
+For development without installing the command globally:
 
 ```bash
 uv run --project labframe labframe --version
@@ -28,69 +26,49 @@ uv run --project labframe labframe --version
 
 ## Initialize a project
 
-From the common parent directory:
-
 ```bash
 labframe init caoh-simulation
 ```
 
-Or, without installing the command globally:
-
-```bash
-uv run --project labframe labframe init caoh-simulation
-```
-
-Initialization copies the bundled project template, adds an editable uv source pointing back to the local sibling `labframe` checkout, runs `uv sync`, initializes Git, and creates the initial commit. The generated repository contains:
+This creates and syncs a uv project, initializes Git, and makes the initial commit. The generated project is deliberately small:
 
 ```text
 caoh-simulation/
 ├── simulation.py
-├── fit_results.py
+├── fit_models.py
 ├── plot_results.py
-├── plot_style.py
 ├── build_summary.py
-├── labframe.yaml
 ├── configs/
 │   ├── default.yaml
 │   └── smoke.yaml
-├── tests/
 ├── runs/
-├── reports/
 ├── pyproject.toml
-└── uv.lock
+├── uv.lock
+└── README.md
 ```
 
-Use `--no-sync` to create files without resolving the uv environment, or `--no-git` when another tool owns repository initialization.
+The local uv source in the generated `pyproject.toml` points to the sibling Labframe checkout.
 
-## Run a project
-
-Inside a generated project:
+## Run the smoke configuration
 
 ```bash
+cd caoh-simulation
 uv run labframe run --no-commit configs/smoke.yaml
 ```
 
-Labframe executes:
+Labframe runs these stages:
 
 ```text
-configuration
-    -> simulation or experiment acquisition
-    -> saved numerical data
-    -> saved fit products
-    -> figures
-    -> summary.md and summary.html
+configuration -> simulation/acquisition -> fit -> saved results -> combined figure -> summary.md + summary.html
 ```
 
-Each invocation creates `runs/<timestamp>_<config-hash>/` with the copied configuration, `meta.json`, captured output, `results/`, `figures/`, and summaries. Plotting and summary hooks operate only on saved artifacts and never rerun acquisition.
+The generated `simulation.py` dispatches on `simulation.type`; the included `rabi_flop` function is a QuTiP two-level simulation. `fit_models.py` provides reusable lmfit sine, linear, Gaussian, exponential, and power-law models plus the example Rabi fitting stage. Both simulation and fitted curves are saved as NPZ results. `plot_results.py` verifies compatible x/y names, shapes, and x coordinates before plotting every result in one figure.
 
-Commit mode is enabled by default. For a run that must not create commits, use `--no-commit` with a clean project working tree. Automated validation must use `configs/smoke.yaml`; plain `labframe run` selects `configs/default.yaml`.
+Each run is saved under `runs/<timestamp>_<config-hash>/`. `--no-commit` requires a clean working tree and records the current `HEAD` in `meta.json`. Plain `labframe run` selects `configs/default.yaml`, so automated validation must always pass `configs/smoke.yaml` explicitly.
 
-## Bundled Rabi example
-
-The generated template contains a deterministic noisy Rabi simulation and a SciPy fit that recovers the oscillation frequency, contrast, offset, uncertainty, and RMSE. It is a working example for validation, not project-specific experimental physics. Replace the hook implementations while keeping their function contracts.
-
-Run the Labframe package tests with:
+## Development checks
 
 ```bash
 uv run python -m unittest discover -s tests
+uv run ruff check labframe tests
 ```
