@@ -7,6 +7,7 @@ import unittest
 from pathlib import Path
 
 import numpy as np
+from lmfit import Model
 
 from labframe.project import initialize_project
 from labframe.runner import run_project
@@ -85,24 +86,24 @@ class RunnerTest(unittest.TestCase):
             ):
                 self.assertEqual(simulation.files, ["time_s", "excited_state_probability"])
                 self.assertEqual(fitted.files, simulation.files)
-                np.testing.assert_array_equal(fitted["time_s"], simulation["time_s"])
-                time_s = simulation["time_s"]
+                self.assertGreater(fitted["time_s"].size, simulation["time_s"].size)
+                self.assertEqual(float(fitted["time_s"][0]), float(simulation["time_s"][0]))
+                self.assertEqual(float(fitted["time_s"][-1]), float(simulation["time_s"][-1]))
                 probability = simulation["excited_state_probability"]
                 fitted_probability = fitted["excited_state_probability"]
-            self.assertEqual(fitted_probability.shape, probability.shape)
+            self.assertGreater(fitted_probability.size, probability.size)
 
             fit_models = _load_module("generated_fit_models", project_root / "fit_models.py")
-            parameters = fit_models.sine_model.guess(probability, x=time_s)
-            fit = fit_models.sine_model.fit(probability, parameters, x=time_s)
-            self.assertTrue(fit.success)
-            self.assertAlmostEqual(fit.params["frequency"].value, 50_000.0, delta=50.0)
             for name in (
+                "sine_offset_model",
                 "linear_model",
                 "gaussian_model",
                 "exponential_model",
                 "power_law_model",
             ):
                 self.assertTrue(hasattr(fit_models, name))
+                self.assertIsInstance(getattr(fit_models, name), Model)
+            self.assertNotIn(".guess(", (project_root / "simulation.py").read_text(encoding="utf-8"))
             summary = (run_dir / "summary.md").read_text(encoding="utf-8")
             self.assertIn("results/rabi_flop.npz", summary)
             self.assertIn("results/rabi_flop_fit.npz", summary)
@@ -117,7 +118,7 @@ class RunnerTest(unittest.TestCase):
                 starting_commit,
             )
 
-    def test_plot_rejects_results_with_different_x_coordinates(self) -> None:
+    def test_plot_accepts_results_with_different_x_coordinates(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
             project_root = Path(temporary_directory)
             initialize_project(project_root, sync=False, initialize_git=False)
@@ -137,7 +138,22 @@ class RunnerTest(unittest.TestCase):
             )
 
             plot_module = _load_module("generated_plot_results", project_root / "plot_results.py")
-            with self.assertRaisesRegex(ValueError, "x coordinates"):
+            plot_module.plot_results(run_dir)
+            self.assertTrue((run_dir / "figures" / "combined_results.png").is_file())
+
+    def test_plot_rejects_results_with_different_axis_names(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            project_root = Path(temporary_directory)
+            initialize_project(project_root, sync=False, initialize_git=False)
+            run_dir = project_root / "runs" / "test"
+            results_dir = run_dir / "results"
+            results_dir.mkdir(parents=True)
+            x_values = np.linspace(0.0, 1.0, 11)
+            np.savez(results_dir / "first.npz", time_s=x_values, probability=x_values)
+            np.savez(results_dir / "second.npz", delay_s=x_values, probability=x_values)
+
+            plot_module = _load_module("generated_plot_axis_check", project_root / "plot_results.py")
+            with self.assertRaisesRegex(ValueError, "array names"):
                 plot_module.plot_results(run_dir)
 
     def test_no_commit_run_rejects_dirty_project(self) -> None:

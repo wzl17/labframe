@@ -29,7 +29,7 @@ def _build_parser() -> argparse.ArgumentParser:
         help="create files without initializing and committing the Git repository",
     )
 
-    run_parser = subparsers.add_parser("run", help="run simulation, fit, plot, and summary hooks")
+    run_parser = subparsers.add_parser("run", help="run simulation, plot, and summary hooks")
     run_parser.add_argument(
         "config",
         nargs="?",

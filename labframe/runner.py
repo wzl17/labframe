@@ -23,7 +23,6 @@ from labframe.project import PROJECT_FILE, load_project_settings
 
 DEFAULT_HOOKS = {
     "simulation": ("simulation.py", "run_simulation"),
-    "fit": ("fit_models.py", "fit_results"),
     "plot": ("plot_results.py", "plot_results"),
     "summary": ("build_summary.py", "build_summary"),
 }
@@ -137,10 +136,8 @@ def _run_data_pipeline(source_root: Path, run_dir: Path) -> None:
     config = _load_config(run_dir / "config.yaml")
     with _project_on_path(source_root):
         simulation = _load_hook(source_root, "simulation")
-        fit = _load_hook(source_root, "fit")
         plot = _load_hook(source_root, "plot")
         simulation(config, run_dir / "results")
-        fit(config, run_dir / "results")
         plot(run_dir)
 
 

@@ -43,12 +43,10 @@ def plot_results(run_dir: Path) -> None:
         raise ValueError("No NPZ results found")
 
     loaded = [(path, *_load_result(path)) for path in result_paths]
-    _, reference_x_name, reference_y_name, reference_x, _ = loaded[0]
-    for path, x_name, y_name, x_values, _ in loaded[1:]:
+    _, reference_x_name, reference_y_name, _, _ = loaded[0]
+    for path, x_name, y_name, _, _ in loaded[1:]:
         if (x_name, y_name) != (reference_x_name, reference_y_name):
             raise ValueError(f"The x/y array names in {path.name} do not match the other results")
-        if x_values.shape != reference_x.shape or not np.array_equal(x_values, reference_x):
-            raise ValueError(f"The x coordinates in {path.name} do not match the other results")
 
     x_scale = 1e6 if reference_x_name == "time_s" else 1.0
     x_label = "Time (µs)" if reference_x_name == "time_s" else reference_x_name
@@ -59,7 +57,17 @@ def plot_results(run_dir: Path) -> None:
     with plt.rc_context(RC_PARAMS):
         figure, axis = plt.subplots(figsize=(7.0, 4.2))
         for path, _, _, x_values, y_values in loaded:
-            axis.plot(x_values * x_scale, y_values, label=path.stem)
+            if path.stem.endswith("_fit"):
+                axis.plot(x_values * x_scale, y_values, label=path.stem)
+            else:
+                axis.plot(
+                    x_values * x_scale,
+                    y_values,
+                    linestyle="none",
+                    marker="o",
+                    markersize=3.5,
+                    label=path.stem,
+                )
         axis.set(
             xlabel=x_label,
             ylabel=y_label,

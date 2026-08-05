@@ -1,17 +1,17 @@
 # {{PROJECT_NAME}}
 
-This Labframe project contains a dispatched Rabi-flop simulation, reusable lmfit models with an example result-fitting hook, one plotting file, one summary file, and editable YAML configurations.
+This Labframe project contains a dispatched Rabi-flop simulation with an explicit lmfit example, reusable built-in lmfit model objects, one plotting file, one summary file, and editable YAML configurations.
 
 ```bash
 uv run labframe run --no-commit configs/smoke.yaml
 ```
 
-The command runs simulation, fitting, plotting, and summary stages. It saves `rabi_flop.npz` and `rabi_flop_fit.npz`, plots every compatible NPZ result in one figure, and writes `summary.md` and `summary.html`. Do not run without a configuration during automated validation because that selects `configs/default.yaml`.
+The Rabi simulation saves `rabi_flop.npz` and immediately calls its fitting example. The fitting function reads that NPZ and saves a smooth, densely sampled `rabi_flop_fit.npz`. Labframe then plots every result with compatible axis names in one figure and writes `summary.md` and `summary.html`. Do not run without a configuration during automated validation because that selects `configs/default.yaml`.
 
 Edit:
 
-- `simulation.py` for the project simulation or experiment acquisition.
-- `fit_models.py` for reusable lmfit models and result-fitting examples.
+- `simulation.py` for the project simulation or experiment acquisition and its result-fitting examples.
+- `fit_models.py` only for reusable lmfit models, including the composed sine-plus-offset model.
 - `plot_results.py` for plots based on saved results.
 - `build_summary.py` for per-run Markdown and HTML summaries.
 - `configs/` for run parameters.

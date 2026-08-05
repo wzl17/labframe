@@ -59,10 +59,10 @@ uv run labframe run --no-commit configs/smoke.yaml
 Labframe runs these stages:
 
 ```text
-configuration -> simulation/acquisition -> fit -> saved results -> combined figure -> summary.md + summary.html
+configuration -> simulation/acquisition with its fit -> saved results -> combined figure -> summary.md + summary.html
 ```
 
-The generated `simulation.py` dispatches on `simulation.type`; the included `rabi_flop` function is a QuTiP two-level simulation. `fit_models.py` provides reusable lmfit sine, linear, Gaussian, exponential, and power-law models plus the example Rabi fitting stage. Both simulation and fitted curves are saved as NPZ results. `plot_results.py` verifies compatible x/y names, shapes, and x coordinates before plotting every result in one figure.
+The generated `simulation.py` dispatches on `simulation.type`; the included `rabi_flop` function is a QuTiP two-level simulation and directly calls `fit_rabi_flop` after saving its result. The fitting function reads the saved NPZ, constructs every lmfit parameter with `value`, `min`, `max`, and `vary` rather than calling `guess()`, evaluates the model on a separate dense time grid, and saves its own NPZ. `fit_models.py` defines a reusable sine-plus-offset model from lmfit's `SineModel` and `ConstantModel`, alongside linear, Gaussian, exponential, and power-law models. `plot_results.py` verifies compatible x/y names and valid per-file shapes before plotting differently sampled results in one figure.
 
 Each run is saved under `runs/<timestamp>_<config-hash>/`. `--no-commit` requires a clean working tree and records the current `HEAD` in `meta.json`. Plain `labframe run` selects `configs/default.yaml`, so automated validation must always pass `configs/smoke.yaml` explicitly.
 

@@ -27,6 +27,7 @@ class ProjectTest(unittest.TestCase):
             self.assertIn('name = "microwave-experiment"', pyproject)
             self.assertIn('labframe = { path = "', pyproject)
             self.assertIn("[tool.labframe]", pyproject)
+            self.assertNotIn("fit =", pyproject)
             self.assertEqual(find_project_root(project_root / "configs"), project_root.resolve())
 
     def test_initializer_refuses_nonempty_directory(self) -> None:
