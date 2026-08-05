@@ -1,0 +1,48 @@
+# {{PROJECT_NAME}}
+
+This is a configuration-driven Labframe project. Its bundled Rabi example is a working simulation-and-fit test case; replace the hook bodies with project-specific simulation or experiment-control code.
+
+## Setup
+
+`labframe init` normally runs `uv sync` and creates the initial Git commit. To refresh the environment later:
+
+```bash
+uv sync
+```
+
+## Run the smoke workflow
+
+```bash
+uv run labframe run --no-commit configs/smoke.yaml
+```
+
+This runs the complete pipeline:
+
+```text
+config.yaml -> simulation/acquisition -> saved results -> fit -> figure -> summary.md + summary.html
+```
+
+`--no-commit` requires a clean Git working tree and records the current `HEAD` in `meta.json`. Commit mode is the default; it snapshots dirty source files and creates a source commit only after a successful pipeline:
+
+```bash
+uv run labframe run --yes configs/smoke.yaml
+```
+
+Do not invoke `labframe run` without a configuration during automated checks, because that selects `configs/default.yaml`.
+
+## Editable project hooks
+
+- `simulation.py`: implement `run_simulation(config, results_dir)` for a simulation or experiment acquisition.
+- `fit_results.py`: implement `fit_results(config, results_dir)` using saved data.
+- `plot_results.py`: implement `plot_results(run_dir)` using only saved results.
+- `build_summary.py`: implement `build_summary(run_dir)` using saved configuration, metadata, results, and figures.
+- `plot_style.py`: keep Matplotlib presentation defaults separate from scientific plotting logic.
+- `configs/`: keep editable default and fast smoke configurations.
+
+Each run is saved under `runs/<timestamp>_<config-hash>/`. Run folders are ignored by Git and should be treated as immutable. The generated root `index.html` links completed HTML summaries. Root-level `reports/` is reserved for multi-run analysis.
+
+## Test the example model and fit
+
+```bash
+uv run python -m unittest discover -s tests
+```

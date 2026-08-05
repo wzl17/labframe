@@ -1,0 +1,11 @@
+# Validation only. Do not use for scientific results.
+simulation:
+  duration_s: 80.0e-6
+  points: 201
+  rabi_frequency_hz: 50.0e3
+  detuning_hz: 0.0
+  contrast: 0.94
+  offset: 0.02
+  noise_std: 0.01
+
+random_seed: 7

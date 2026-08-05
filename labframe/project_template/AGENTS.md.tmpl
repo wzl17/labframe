@@ -1,0 +1,21 @@
+# Project instructions
+
+- Never run `configs/default.yaml` unless explicitly requested.
+- Use `configs/smoke.yaml` for validation.
+- Start runs through the `labframe run` CLI.
+- `labframe run` without a configuration uses `configs/default.yaml`.
+- Never execute plain `labframe run` automatically.
+- The run pipeline performs simulation or acquisition, fitting, plotting, and summary generation.
+- Do not perform broad refactoring unless explicitly requested.
+- `simulation.py` must read a configuration and write into the supplied `results/` directory.
+- `fit_results.py` must read saved data and write fit products into `results/`.
+- Plotting must read from `results/` and write into `figures/`.
+- Summary generation must use saved results and figures.
+- Fitting, plotting, and summary generation must never rerun the simulation or experiment.
+- Keep Matplotlib presentation settings in `plot_style.py`.
+- Do not modify completed run folders.
+- Commit mode is the default; use `labframe run --no-commit` only with a clean Git working tree.
+- Never push, amend, rebase, reset, or rewrite existing Git history.
+- Root-level `reports/` contains multi-run reports, not per-run summaries.
+- In Markdown, use `$...$` for inline math and `$$...$$` on separate lines for display math.
+- Never use `\\(...\\)` or `\\[...\\]` as math delimiters in Markdown.

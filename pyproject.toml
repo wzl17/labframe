@@ -3,44 +3,45 @@ requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "cat-state-simulation"
+name = "labframe"
 version = "0.1.0"
-description = "A configuration-driven project for cat-state simulations"
+description = "Initialize and run reproducible simulation and experiment projects"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
-    "jinja2>=3.1",
-    "lmfit>=1.3",
-    "matplotlib>=3.10",
-    "numpy>=2.2",
     "pyyaml>=6.0",
-    "qutip>=5.3.1",
 ]
 
 [project.scripts]
-run = "run:main"
+labframe = "labframe.cli:main"
 
-[tool.setuptools]
-py-modules = ["build_summary", "fit_models", "plot_results", "plot_style", "run", "simulation", "utils"]
+[tool.setuptools.packages.find]
+include = ["labframe*"]
+
+[tool.setuptools.package-data]
+labframe = [
+    "project_template/**/*",
+    "project_template/.gitignore",
+    "project_template/reports/.gitkeep",
+    "project_template/runs/.gitkeep",
+]
+
+[tool.setuptools.exclude-package-data]
+labframe = ["**/__pycache__/*", "**/*.pyc", "**/*.pyo"]
 
 [dependency-groups]
 dev = [
+    "matplotlib>=3.10",
+    "numpy>=2.2",
     "ruff>=0.16.1",
+    "scipy>=1.15",
 ]
 
 [tool.ruff]
-line-length = 170
+line-length = 120
 
 [tool.ruff.lint]
-select = [
-    "E4",
-    "E7",
-    "E9",
-    "F",
-    "I",
-    "B",
-    "UP",
-]
+select = ["E4", "E7", "E9", "F", "I", "B", "UP"]
 ignore = ["E501"]
 
 [tool.ruff.format]

@@ -1,24 +1,22 @@
 # Project instructions
 
-- Never run `configs/default.yaml` unless explicitly requested.
-- Use `configs/smoke.yaml` for validation.
-- Start simulations through the `run` CLI.
-- `run` without arguments uses `configs/default.yaml`.
-- Never execute plain `run` automatically.
-- The `run` command performs simulation, plotting, and per-run summary generation.
+- Labframe is an installable tool that initializes and runs independent simulation or experiment projects.
+- Never run a generated project's `configs/default.yaml` unless explicitly requested.
+- Use a generated project's `configs/smoke.yaml` for validation.
+- Start generated-project workflows through `labframe run`.
+- `labframe run` without a configuration uses `configs/default.yaml`; never execute it automatically.
 - Do not perform broad refactoring unless explicitly requested.
-- The simulation must read a configuration and write into the supplied `results/` directory.
-- `run.py` owns the full run pipeline and run-folder creation.
+- The generated simulation or acquisition hook must read a configuration and write into the supplied `results/` directory.
+- The generated fit hook must read saved data and write fit products into `results/`.
 - Plotting must read from `results/` and write into `figures/`.
 - Summary generation must use saved results and figures.
-- Plotting and summary generation must never rerun the simulation.
-- Keep Matplotlib presentation settings in `plot_style.py`.
+- Fitting, plotting, and summary generation must never rerun the simulation or experiment.
+- Keep Matplotlib presentation settings in generated `plot_style.py` files.
 - Do not modify completed run folders.
-- Commit mode is the default; use `run --no-commit` only with a clean Git working tree.
-- `run` snapshots the launch source state and commits it automatically only after a successful simulation.
-- The resulting commit must represent the source state at simulation launch, not edits made while the simulation was running.
+- Commit mode is the default; use `labframe run --no-commit` only with a clean generated-project working tree.
+- A committed run must represent the source state at launch, not edits made while the run was active.
 - Never push, amend, rebase, reset, or rewrite existing Git history.
-- Root-level `reports/` contains multi-run reports, not per-run summaries.
+- Root-level `reports/` in generated projects contains multi-run reports, not per-run summaries.
 - Do not add dependencies or workflow tools without a concrete need.
 - In Markdown, use `$...$` for inline math and `$$...$$` on separate lines for display math.
 - Never use `\\(...\\)` or `\\[...\\]` as math delimiters in Markdown.
