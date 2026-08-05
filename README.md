@@ -53,10 +53,19 @@ The initializer accepts these options:
 | `--name NAME` | Use `NAME` in generated files instead of deriving the name from the directory. |
 | `--no-venv` | Use a containing project's environment. This omits the standalone `pyproject.toml`, does not invoke uv, and creates neither `.venv` nor `uv.lock`. |
 | `--no-sync` | Write the standalone `pyproject.toml` but do not invoke uv. Dependency resolution and environment creation can be performed later with `uv sync`. |
-| `--no-git` | Do not initialize Git or create the initial commit. |
+| `--no-git` | Do not create an independent Git repository or initial commit. Use this only when the generated project is inside an existing Git repository with at least one commit. |
 | `-h`, `--help` | Show the `init` command help. |
 
 `--no-venv` and `--no-sync` are mutually exclusive. Use `--no-venv` for a simulation nested inside an existing uv project; the containing project's `pyproject.toml`, `uv.lock`, and `.venv` own its dependencies. Use `--no-sync` for a standalone project whose first uv synchronization should be deferred, such as during offline scaffolding.
+
+### Git repository requirement
+
+Every generated project must resolve to a Git repository with an existing `HEAD` commit before `labframe run` can start. Choose one of these arrangements:
+
+- Let the default `labframe init` create an independent repository and initial commit inside the generated project.
+- Use `labframe init --no-git` only when the generated project is nested inside an existing containing repository that already has a commit.
+
+`--no-git` skips creation of the independent repository; it does not enable Git-free runs. When Labframe finds a containing repository, default commit mode records changed launch source in that repository and advances its current branch after a successful run. Even `labframe run --no-commit` requires the resolved repository to have an existing `HEAD` commit.
 
 For a simulation inside an existing project and Git repository:
 
@@ -91,7 +100,7 @@ my-experiment/
 
 | File or directory | Purpose |
 |---|---|
-| `.git/` | Independent Git repository created by `labframe init`. It is absent when initialization uses `--no-git`. |
+| `.git/` | Independent Git repository created by `labframe init`. With `--no-git`, it is absent and a containing repository must provide source history instead. |
 | `.venv/` | Project-specific Python environment created by `uv sync`. It is absent with `--no-venv`, which uses the containing project's environment, and initially absent with `--no-sync`. |
 | `configs/default.yaml` | Normal project configuration. `labframe run` selects this file when no configuration is given. |
 | `configs/smoke.yaml` | Small, fast configuration for validating the complete workflow. |
@@ -109,6 +118,8 @@ my-experiment/
 The bundled starter is a complete Rabi-flop example: QuTiP generates numerical data, lmfit fits the saved data, Matplotlib creates a figure, and the summary hook writes Markdown and HTML reports.
 
 ## 3. Run the project
+
+Before running, confirm that the generated project has either its own repository created by `labframe init` or a containing repository, and that the selected repository has at least one commit. Labframe uses that repository for source provenance in both commit and `--no-commit` modes.
 
 From the generated project directory, the normal command is:
 
