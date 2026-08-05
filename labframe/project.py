@@ -4,36 +4,28 @@ import os
 import re
 import shutil
 import subprocess
-import tomllib
 from pathlib import Path
 
-PROJECT_FILE = "pyproject.toml"
+PROJECT_HOOKS = {
+    "simulation": ("simulation.py", "run_simulation"),
+    "plot": ("plot_results.py", "plot_results"),
+    "summary": ("build_summary.py", "build_summary"),
+}
 _TEMPLATE_SUFFIX = ".tmpl"
 
 
-def load_project_settings(project_root: Path) -> dict[str, str]:
-    """Load and validate the small ``[tool.labframe]`` hook table."""
-    path = project_root / PROJECT_FILE
-    try:
-        document = tomllib.loads(path.read_text(encoding="utf-8"))
-    except FileNotFoundError as error:
-        raise FileNotFoundError(f"Labframe project file not found: {path}") from error
-    settings = document.get("tool", {}).get("labframe")
-    if not isinstance(settings, dict):
-        raise ValueError(f"Missing [tool.labframe] table in {path}")
-    return settings
+def is_project_root(directory: Path) -> bool:
+    """Return whether a directory contains the conventional Labframe hooks."""
+    return all((directory / filename).is_file() for filename, _ in PROJECT_HOOKS.values())
 
 
 def find_project_root(start: Path) -> Path:
-    """Find the nearest parent containing a Labframe-enabled pyproject.toml."""
+    """Find the nearest parent containing the conventional Labframe hooks."""
     candidate = start.resolve()
     for directory in (candidate, *candidate.parents):
-        try:
-            load_project_settings(directory)
-        except (FileNotFoundError, ValueError, tomllib.TOMLDecodeError):
-            continue
-        return directory
-    raise FileNotFoundError(f"No Labframe-enabled {PROJECT_FILE} found at or above {candidate}")
+        if is_project_root(directory):
+            return directory
+    raise FileNotFoundError(f"No Labframe project found at or above {candidate}")
 
 
 def _normalized_name(target: Path, requested_name: str | None) -> str:
@@ -70,11 +62,19 @@ def _render_template(text: str, context: dict[str, str]) -> str:
     return text
 
 
-def _copy_template(template_root: Path, target: Path, context: dict[str, str]) -> None:
+def _copy_template(
+    template_root: Path,
+    target: Path,
+    context: dict[str, str],
+    *,
+    include_pyproject: bool,
+) -> None:
     for source in sorted(template_root.rglob("*")):
         if "__pycache__" in source.parts or source.suffix in {".pyc", ".pyo"}:
             continue
         relative = source.relative_to(template_root)
+        if not include_pyproject and relative == Path("pyproject.toml.tmpl"):
+            continue
         destination_relative = relative.with_suffix("") if source.name.endswith(_TEMPLATE_SUFFIX) else relative
         destination = target / destination_relative
         if source.is_dir():
@@ -120,9 +120,14 @@ def initialize_project(
     *,
     name: str | None = None,
     sync: bool = True,
+    create_venv: bool = True,
     initialize_git: bool = True,
 ) -> Path:
-    """Create an editable Labframe project and optionally prepare uv and Git."""
+    """Create a Labframe project and optionally prepare uv and Git.
+
+    ``create_venv=False`` omits the standalone ``pyproject.toml`` and leaves
+    dependency and environment management to a containing project.
+    """
     target = directory.resolve()
     if target.exists() and any(target.iterdir()):
         raise FileExistsError(f"Project directory is not empty: {target}")
@@ -132,9 +137,14 @@ def initialize_project(
     template_root = Path(__file__).resolve().parent / "project_template"
     if not template_root.is_dir():
         raise RuntimeError(f"Bundled project template is missing: {template_root}")
-    _copy_template(template_root, target, _template_context(target, project_name))
+    _copy_template(
+        template_root,
+        target,
+        _template_context(target, project_name),
+        include_pyproject=create_venv,
+    )
 
-    if sync:
+    if sync and create_venv:
         _run(["uv", "sync"], target)
 
     if initialize_git:

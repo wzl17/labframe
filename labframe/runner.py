@@ -11,7 +11,6 @@ import sys
 import tarfile
 import tempfile
 import time
-import tomllib
 import uuid
 from contextlib import contextmanager, redirect_stderr, redirect_stdout
 from datetime import datetime
@@ -19,13 +18,7 @@ from pathlib import Path
 
 import yaml
 
-from labframe.project import PROJECT_FILE, load_project_settings
-
-DEFAULT_HOOKS = {
-    "simulation": ("simulation.py", "run_simulation"),
-    "plot": ("plot_results.py", "plot_results"),
-    "summary": ("build_summary.py", "build_summary"),
-}
+from labframe.project import PROJECT_HOOKS, is_project_root
 
 
 class _Tee:
@@ -102,21 +95,8 @@ def _project_on_path(project_root: Path):
         sys.path[:] = original
 
 
-def _hook_spec(project_root: Path, hook_name: str) -> tuple[str, str]:
-    settings = load_project_settings(project_root)
-    configured = settings.get(hook_name)
-    if configured is None:
-        return DEFAULT_HOOKS[hook_name]
-    if not isinstance(configured, str) or configured.count(":") != 1:
-        raise ValueError(f"tool.labframe.{hook_name} in {PROJECT_FILE} must use file.py:function syntax")
-    filename, function_name = configured.split(":", maxsplit=1)
-    if not filename or not function_name:
-        raise ValueError(f"tool.labframe.{hook_name} in {PROJECT_FILE} must use file.py:function syntax")
-    return filename, function_name
-
-
 def _load_hook(project_root: Path, hook_name: str):
-    filename, function_name = _hook_spec(project_root, hook_name)
+    filename, function_name = PROJECT_HOOKS[hook_name]
     path = project_root / filename
     if not path.is_file():
         raise FileNotFoundError(f"Missing {hook_name} hook file: {path}")
@@ -215,10 +195,8 @@ def run_project(
 ) -> Path:
     """Execute the complete project pipeline and return the immutable run folder."""
     project_root = project_root.resolve()
-    try:
-        load_project_settings(project_root)
-    except (FileNotFoundError, ValueError, tomllib.TOMLDecodeError) as error:
-        raise ValueError(f"Not a Labframe project: {project_root}") from error
+    if not is_project_root(project_root):
+        raise ValueError(f"Not a Labframe project: {project_root}")
     config_path, config_relative = _config_path(project_root, config)
     starting_commit = _git(project_root, "rev-parse", "HEAD")
     dirty = _git(project_root, "status", "--porcelain")

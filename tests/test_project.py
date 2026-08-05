@@ -1,6 +1,7 @@
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from labframe.project import find_project_root, initialize_project
 
@@ -26,8 +27,7 @@ class ProjectTest(unittest.TestCase):
             pyproject = (project_root / "pyproject.toml").read_text(encoding="utf-8")
             self.assertIn('name = "microwave-experiment"', pyproject)
             self.assertIn('labframe = { path = "', pyproject)
-            self.assertIn("[tool.labframe]", pyproject)
-            self.assertNotIn("fit =", pyproject)
+            self.assertNotIn("[tool.labframe]", pyproject)
             readme = (project_root / "README.md").read_text(encoding="utf-8")
             self.assertIn("# microwave-experiment", readme)
             self.assertNotIn("{{PROJECT_NAME}}", readme)
@@ -39,6 +39,18 @@ class ProjectTest(unittest.TestCase):
             (project_root / "keep.txt").write_text("user data", encoding="utf-8")
             with self.assertRaises(FileExistsError):
                 initialize_project(project_root, sync=False, initialize_git=False)
+
+    def test_initializer_can_use_containing_environment_without_pyproject(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            project_root = Path(temporary_directory) / "contained-project"
+            with patch("labframe.project._run") as run:
+                initialize_project(project_root, create_venv=False, initialize_git=False)
+
+            run.assert_not_called()
+            self.assertFalse((project_root / "pyproject.toml").exists())
+            self.assertFalse((project_root / "uv.lock").exists())
+            self.assertFalse((project_root / ".venv").exists())
+            self.assertEqual(find_project_root(project_root / "configs"), project_root.resolve())
 
 
 if __name__ == "__main__":

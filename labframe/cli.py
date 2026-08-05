@@ -18,11 +18,17 @@ def _build_parser() -> argparse.ArgumentParser:
 
     init_parser = subparsers.add_parser("init", help="create a project from the bundled template")
     init_parser.add_argument("directory", type=Path, help="new project directory")
-    init_parser.add_argument("--name", help="project name written to pyproject.toml")
-    init_parser.add_argument(
+    init_parser.add_argument("--name", help="project name used in generated files")
+    dependency_group = init_parser.add_mutually_exclusive_group()
+    dependency_group.add_argument(
+        "--no-venv",
+        action="store_true",
+        help="use a containing project's environment and omit the standalone pyproject.toml",
+    )
+    dependency_group.add_argument(
         "--no-sync",
         action="store_true",
-        help="create the uv project without resolving and installing dependencies",
+        help="write standalone project files without invoking uv",
     )
     init_parser.add_argument(
         "--no-git",
@@ -67,6 +73,7 @@ def main() -> None:
             args.directory,
             name=args.name,
             sync=not args.no_sync,
+            create_venv=not args.no_venv,
             initialize_git=not args.no_git,
         )
         print(project_root)

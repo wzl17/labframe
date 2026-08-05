@@ -21,7 +21,7 @@ simulation.py      Simulation dispatch, saved results, and fitting examples
 fit_models.py      Reusable lmfit model objects
 plot_results.py    Figures built from saved results
 build_summary.py   Markdown and HTML built from saved artifacts
-pyproject.toml     Dependencies and Labframe hook paths
+pyproject.toml     Standalone dependencies; omitted by `labframe init --no-venv`
 ```
 
 The starter's `simulation.py` saves `rabi_flop.npz`, reads it back for fitting, and saves a densely sampled `rabi_flop_fit.npz`. Plotting and summary generation consume those files without rerunning the simulation.
