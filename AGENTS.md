@@ -1,0 +1,24 @@
+# Project instructions
+
+- Never run `configs/default.yaml` unless explicitly requested.
+- Use `configs/smoke.yaml` for validation.
+- Start simulations through the `run` CLI.
+- `run` without arguments uses `configs/default.yaml`.
+- Never execute plain `run` automatically.
+- The `run` command performs simulation, plotting, and per-run summary generation.
+- Do not perform broad refactoring unless explicitly requested.
+- The simulation must read a configuration and write into the supplied `results/` directory.
+- `run.py` owns the full run pipeline and run-folder creation.
+- Plotting must read from `results/` and write into `figures/`.
+- Summary generation must use saved results and figures.
+- Plotting and summary generation must never rerun the simulation.
+- Keep Matplotlib presentation settings in `plot_style.py`.
+- Do not modify completed run folders.
+- Commit mode is the default; use `run --no-commit` only with a clean Git working tree.
+- `run` snapshots the launch source state and commits it automatically only after a successful simulation.
+- The resulting commit must represent the source state at simulation launch, not edits made while the simulation was running.
+- Never push, amend, rebase, reset, or rewrite existing Git history.
+- Root-level `reports/` contains multi-run reports, not per-run summaries.
+- Do not add dependencies or workflow tools without a concrete need.
+- In Markdown, use `$...$` for inline math and `$$...$$` on separate lines for display math.
+- Never use `\\(...\\)` or `\\[...\\]` as math delimiters in Markdown.

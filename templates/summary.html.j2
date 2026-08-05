@@ -1,0 +1,40 @@
+{% extends "base.html.j2" %}
+{% block title %}{{ run_name }} · Simulation summary{% endblock %}
+{% block content %}
+  <a class="back-link" href="{{ index_href }}">← All simulation runs</a>
+  <h1>Simulation summary</h1>
+  <p class="lede">{{ run_name }}</p>
+
+  <dl class="metadata">
+    <div><dt>Simulation type</dt><dd>{{ simulation_type }}</dd></div>
+    <div><dt>Status</dt><dd>{{ meta.get("status", "unknown") }}</dd></div>
+    <div><dt>Started</dt><dd>{{ meta.get("started_at") or "unknown" }}</dd></div>
+    <div><dt>Runtime</dt><dd>{% if meta.get("runtime_seconds") is not none %}{{ meta.get("runtime_seconds") }} s{% else %}unknown{% endif %}</dd></div>
+    <div><dt>Git commit</dt><dd>{{ meta.get("git_commit") or "pending" }}</dd></div>
+  </dl>
+
+  <h2>Parameters</h2>
+  <pre><code>{{ config_yaml }}</code></pre>
+
+  <h2>Results</h2>
+  {% if results %}
+    <ul>
+      {% for result in results %}<li><a href="{{ result.href }}">{{ result.name }}</a></li>{% endfor %}
+    </ul>
+  {% else %}
+    <p class="muted">No results found.</p>
+  {% endif %}
+
+  {% for figure in figures %}
+    <figure class="figure">
+      <img src="{{ figure.src }}" alt="{{ figure.name }}">
+      <figcaption>{{ figure.name }}</figcaption>
+    </figure>
+  {% endfor %}
+
+  <h2>Output</h2>
+  <pre>{{ output_text }}</pre>
+
+  <h2>Notes</h2>
+  <pre>{{ notes }}</pre>
+{% endblock %}

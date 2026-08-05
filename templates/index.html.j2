@@ -1,0 +1,34 @@
+{% extends "base.html.j2" %}
+{% block title %}Simulation runs{% endblock %}
+{% block content %}
+  <h1>Simulation runs</h1>
+  <p class="lede">Static summaries grouped by simulation type.</p>
+
+  {% if groups %}
+    {% for group in groups %}
+      <section class="run-group">
+        <h2>
+          <span class="group-label">Simulation type</span>
+          <code>{{ group.simulation_type }}</code>
+          <span class="run-count">{{ group.entries | length }} run{% if group.entries | length != 1 %}s{% endif %}</span>
+        </h2>
+        <ul class="run-list">
+          {% for entry in group.entries %}
+            <li>
+              <a href="{{ entry.href }}">
+                <span class="run-name">{{ entry.name }}</span>
+                <span class="run-details">
+                  {{ entry.status }}
+                  {% if entry.started_at %} · {{ entry.started_at }}{% endif %}
+                  {% if entry.runtime_seconds is not none %} · {{ entry.runtime_seconds }} s{% endif %}
+                </span>
+              </a>
+            </li>
+          {% endfor %}
+        </ul>
+      </section>
+    {% endfor %}
+  {% else %}
+    <div class="panel muted">No run summaries are available yet.</div>
+  {% endif %}
+{% endblock %}
