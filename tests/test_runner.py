@@ -79,6 +79,7 @@ class RunnerTest(unittest.TestCase):
             self.assertTrue((run_dir / "figures" / "combined_results.png").is_file())
             self.assertTrue((run_dir / "summary.md").is_file())
             self.assertTrue((run_dir / "summary.html").is_file())
+            self.assertTrue((project_root / "index.html").is_file())
 
             with (
                 np.load(simulation_path, allow_pickle=False) as simulation,
@@ -107,6 +108,12 @@ class RunnerTest(unittest.TestCase):
             summary = (run_dir / "summary.md").read_text(encoding="utf-8")
             self.assertIn("results/rabi_flop.npz", summary)
             self.assertIn("results/rabi_flop_fit.npz", summary)
+            summary_html = (run_dir / "summary.html").read_text(encoding="utf-8")
+            self.assertIn('href="../../index.html"', summary_html)
+            index_html = (project_root / "index.html").read_text(encoding="utf-8")
+            self.assertIn('data-run-type="rabi_flop"', index_html)
+            self.assertIn(f'href="runs/{run_dir.name}/summary.html"', index_html)
+            self.assertIn('<span class="run-count">1 run</span>', index_html)
             self.assertEqual(
                 subprocess.run(
                     ["git", "rev-parse", "HEAD"],
@@ -117,6 +124,65 @@ class RunnerTest(unittest.TestCase):
                 ).stdout.strip(),
                 starting_commit,
             )
+            self.assertEqual(
+                subprocess.run(
+                    ["git", "status", "--porcelain"],
+                    cwd=project_root,
+                    check=True,
+                    capture_output=True,
+                    text=True,
+                ).stdout,
+                "",
+            )
+
+    def test_index_groups_existing_summaries_by_run_type_newest_first(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            project_root = Path(temporary_directory) / "grouped-runs"
+            initialize_project(project_root, sync=False, initialize_git=False)
+            summary_module = _load_module("generated_grouped_summary", project_root / "build_summary.py")
+
+            runs = (
+                ("20260806-100000_aaaaaaaa", "rabi_flop"),
+                ("20260806-110000_bbbbbbbb", "ramsey"),
+                ("20260806-120000_cccccccc", "rabi_flop"),
+            )
+            for position, (name, run_type) in enumerate(runs):
+                run_dir = project_root / "runs" / name
+                run_dir.mkdir()
+                (run_dir / "config.yaml").write_text(
+                    f"simulation:\n  type: {run_type}\n",
+                    encoding="utf-8",
+                )
+                (run_dir / "meta.json").write_text(
+                    json.dumps(
+                        {
+                            "status": "completed",
+                            "started_at": f"2026-08-06T1{position}:00:00+02:00",
+                            "runtime_seconds": position + 0.5,
+                        }
+                    ),
+                    encoding="utf-8",
+                )
+                (run_dir / "summary.html").write_text("summary", encoding="utf-8")
+
+            incomplete_run = project_root / "runs" / "20260806-130000_dddddddd"
+            incomplete_run.mkdir()
+            (incomplete_run / "config.yaml").write_text(
+                "simulation:\n  type: ignored\n",
+                encoding="utf-8",
+            )
+
+            index_path = summary_module.rebuild_index(project_root)
+            index_html = index_path.read_text(encoding="utf-8")
+
+            self.assertEqual(index_html.count('class="run-group"'), 2)
+            self.assertIn('data-run-type="rabi_flop"', index_html)
+            self.assertIn('data-run-type="ramsey"', index_html)
+            self.assertNotIn("ignored", index_html)
+            self.assertIn('<span class="run-count">2 runs</span>', index_html)
+            newest_rabi = index_html.index("20260806-120000_cccccccc")
+            older_rabi = index_html.index("20260806-100000_aaaaaaaa")
+            self.assertLess(newest_rabi, older_rabi)
 
     def test_plot_accepts_results_with_different_x_coordinates(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:

@@ -109,8 +109,8 @@ my-experiment/
 | `simulation.py` | Reads the selected configuration, runs the simulation or acquisition, writes numerical data to `results/`, and performs fitting examples. |
 | `fit_models.py` | Defines reusable lmfit model objects imported by `simulation.py`. Parameter values, bounds, and `vary` settings stay in `simulation.py`. |
 | `plot_results.py` | Reads saved data from `results/` and writes Matplotlib figures to `figures/`. It is the single place for Matplotlib presentation settings. |
-| `build_summary.py` | Builds `summary.md` and `summary.html` from the saved configuration, metadata, log, results, and figures. |
-| `.gitignore` | Excludes the project environment, Python build files, and generated run contents from Git. |
+| `build_summary.py` | Builds per-run `summary.md` and `summary.html` files and the root run index from saved configuration, metadata, logs, results, and figures. |
+| `.gitignore` | Excludes the project environment, Python build files, generated run contents, and the regenerated root index from Git. |
 | `pyproject.toml` | Declares dependencies and the Labframe source for a standalone project. It is omitted by `--no-venv`. |
 | `uv.lock` | Records the exact dependency resolution produced by `uv sync`. It is omitted by `--no-venv` and initially absent with `--no-sync`. |
 | `README.md` | Gives project-local instructions for running and customizing the generated starter. |
@@ -175,17 +175,19 @@ Do not edit a completed run directory. In commit mode, Labframe runs from the ca
 
 ### Run output
 
-Every invocation creates `runs/<timestamp>_<config-hash>/`:
+Every successful invocation creates a run folder and rebuilds the project home page:
 
 ```text
-runs/<timestamp>_<config-hash>/
-├── results/
-├── figures/
-├── config.yaml
-├── meta.json
-├── output.log
-├── summary.md
-└── summary.html
+index.html
+runs/
+└── <timestamp>_<config-hash>/
+    ├── results/
+    ├── figures/
+    ├── config.yaml
+    ├── meta.json
+    ├── output.log
+    ├── summary.md
+    └── summary.html
 ```
 
 | File or directory | Purpose |
@@ -197,6 +199,9 @@ runs/<timestamp>_<config-hash>/
 | `output.log` | Standard output and error captured from the simulation and plotting stages. |
 | `summary.md` | Markdown report built from the saved artifacts. |
 | `summary.html` | Standalone HTML version of the run report. |
+| `index.html` | Standalone project home page linking all run summaries and grouping them by configured run type. It is regenerated after each successful run and ignored by Git. |
+
+Open `index.html` directly in a browser; no local server is required. Runs appear newest first within groups. The generated starter reads the group from `simulation.type`; customized projects may instead use `experiment.type`, `acquisition.type`, top-level `run_type`, or top-level `type`.
 
 ## 4. Customize a generated project
 
@@ -212,7 +217,7 @@ The hook contracts are:
 
 - The simulation or acquisition hook receives the parsed configuration and the run's `results/` path. It writes all numerical output there. Fitting belongs in this stage and consumes saved results.
 - The plotting hook receives the run path, reads `results/`, and writes figures into `figures/`.
-- The summary hook receives the run path and builds reports only from saved configuration, metadata, logs, results, and figures.
+- The summary hook receives the run path and builds reports plus the root run index only from saved configuration, metadata, logs, results, and figures.
 
 ## Development checks
 
