@@ -1,74 +1,102 @@
 # Labframe
 
-Labframe initializes and runs small, independent simulation or experiment repositories. A local layout can be:
+Labframe is a small command-line tool for creating and running independent simulation or experiment projects. It keeps configuration, source provenance, numerical results, figures, logs, and summaries together without turning the Labframe repository itself into a data repository.
 
-```text
-projects/
-├── labframe/
-├── caoh-simulation/
-└── microwave-experiment/
-```
+## Install
 
-## Install locally
-
-From `projects/`:
+From this checkout:
 
 ```bash
-uv tool install --editable ./labframe
+uv tool install --editable .
 labframe --version
 ```
 
-For development without installing the command globally:
+For development, use the repository environment instead:
 
 ```bash
-uv run --project labframe labframe --version
+uv sync
+uv run labframe --version
 ```
 
-## Initialize a project
+## Create a project
 
 ```bash
-labframe init caoh-simulation
+labframe init ../my-experiment
+cd ../my-experiment
 ```
 
-This creates and syncs a uv project, initializes Git, and makes the initial commit. The generated project is deliberately small:
+By default, `labframe init` copies the bundled starter, runs `uv sync`, initializes Git, and creates an initial commit. Use `--no-sync` or `--no-git` when those steps should be handled separately.
+
+The generated project is self-contained:
 
 ```text
-caoh-simulation/
-├── simulation.py
-├── fit_models.py
-├── plot_results.py
-├── build_summary.py
+my-experiment/
 ├── configs/
 │   ├── default.yaml
 │   └── smoke.yaml
 ├── runs/
+├── build_summary.py
+├── fit_models.py
+├── plot_results.py
+├── simulation.py
+├── .gitignore
 ├── pyproject.toml
 ├── uv.lock
 └── README.md
 ```
 
-The local uv source in the generated `pyproject.toml` points to the sibling Labframe checkout.
+When Labframe is run from a source checkout, the generated `pyproject.toml` includes an editable uv source pointing back to that checkout.
 
-## Run the smoke configuration
+## Run a project
+
+Always select a configuration explicitly:
 
 ```bash
-cd caoh-simulation
-uv run labframe run --no-commit configs/smoke.yaml
+labframe run configs/smoke.yaml
 ```
 
-Labframe runs these stages:
+Calling `labframe run` without a path selects `configs/default.yaml`. Automated validation should instead use the small smoke configuration and avoid creating a source commit:
+
+```bash
+labframe run --no-commit configs/smoke.yaml
+```
+
+`--no-commit` requires a clean generated-project working tree. Normal commit mode captures the source tree at launch, runs from that snapshot, and creates a source commit after a successful run when the launch tree differs from `HEAD`. Use `--yes` to approve dirty launch source in a non-interactive shell.
+
+The pipeline is:
 
 ```text
-configuration -> simulation/acquisition with its fit -> saved results -> combined figure -> summary.md + summary.html
+config -> simulation or acquisition (including fitting) -> saved results -> figures -> summaries
 ```
 
-The generated `simulation.py` dispatches on `simulation.type`; the included `rabi_flop` function is a QuTiP two-level simulation and directly calls `fit_rabi_flop` after saving its result. The fitting function reads the saved NPZ, constructs every lmfit parameter with `value`, `min`, `max`, and `vary` rather than calling `guess()`, evaluates the model on a separate dense time grid, and saves its own NPZ. `fit_models.py` defines a reusable sine-plus-offset model from lmfit's `SineModel` and `ConstantModel`, alongside linear, Gaussian, exponential, and power-law models. `plot_results.py` verifies compatible x/y names and valid per-file shapes before plotting differently sampled results in one figure.
+Each invocation creates `runs/<timestamp>_<config-hash>/` containing:
 
-Each run is saved under `runs/<timestamp>_<config-hash>/`. `--no-commit` requires a clean working tree and records the current `HEAD` in `meta.json`. Plain `labframe run` selects `configs/default.yaml`, so automated validation must always pass `configs/smoke.yaml` explicitly.
+```text
+config.yaml
+meta.json
+output.log
+results/
+figures/
+summary.md
+summary.html
+```
+
+Generated run folders are ignored by the generated project's Git repository. `meta.json` records status, runtime, start time, and the exact source commit associated with a completed run.
+
+## Customize the generated project
+
+The hook paths are configured under `[tool.labframe]` in the generated `pyproject.toml`:
+
+- The simulation hook receives the parsed configuration and a `results/` path. It must write all numerical results there; fitting belongs in this stage and must consume saved results.
+- The plotting hook receives the run path, reads `results/`, and writes figures to `figures/`.
+- The summary hook receives the run path and builds reports only from saved configuration, metadata, logs, results, and figures.
+
+The bundled starter demonstrates these contracts with a QuTiP Rabi-flop simulation and an explicit lmfit fit.
 
 ## Development checks
 
 ```bash
 uv run python -m unittest discover -s tests
 uv run ruff check labframe tests
+uv build
 ```

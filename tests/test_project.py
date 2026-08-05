@@ -28,6 +28,9 @@ class ProjectTest(unittest.TestCase):
             self.assertIn('labframe = { path = "', pyproject)
             self.assertIn("[tool.labframe]", pyproject)
             self.assertNotIn("fit =", pyproject)
+            readme = (project_root / "README.md").read_text(encoding="utf-8")
+            self.assertIn("# microwave-experiment", readme)
+            self.assertNotIn("{{PROJECT_NAME}}", readme)
             self.assertEqual(find_project_root(project_root / "configs"), project_root.resolve())
 
     def test_initializer_refuses_nonempty_directory(self) -> None:

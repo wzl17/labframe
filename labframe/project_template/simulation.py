@@ -10,10 +10,7 @@ from qutip import basis, mesolve, sigmax, sigmaz
 def run_simulation(config: dict, results_dir: Path) -> None:
     """Select and run the simulation named by ``simulation.type``."""
     simulation = config["simulation"]
-    simulation_type = simulation.get(
-        "type",
-        simulation.get("model", "rabi_flop"),
-    )
+    simulation_type = simulation["type"]
 
     if simulation_type == "rabi_flop":
         rabi_flop(simulation, results_dir)

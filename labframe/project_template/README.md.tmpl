@@ -1,17 +1,57 @@
 # {{PROJECT_NAME}}
 
-This Labframe project contains a dispatched Rabi-flop simulation with an explicit lmfit example, reusable built-in lmfit model objects, one plotting file, one summary file, and editable YAML configurations.
+This project was created by Labframe. The starter is a complete Rabi-flop example: QuTiP produces saved numerical data, lmfit fits those saved data, Matplotlib creates a combined figure, and the summary hook writes Markdown and HTML reports.
+
+## Smoke test
+
+From this directory:
 
 ```bash
 uv run labframe run --no-commit configs/smoke.yaml
 ```
 
-The Rabi simulation saves `rabi_flop.npz` and immediately calls its fitting example. The fitting function reads that NPZ and saves a smooth, densely sampled `rabi_flop_fit.npz`. Labframe then plots every result with compatible axis names in one figure and writes `summary.md` and `summary.html`. Do not run without a configuration during automated validation because that selects `configs/default.yaml`.
+The smoke configuration is intentionally small and `--no-commit` requires a clean working tree. Always pass `configs/smoke.yaml` explicitly during automated validation; omitting the configuration selects `configs/default.yaml`.
 
-Edit:
+## Project files
 
-- `simulation.py` for the project simulation or experiment acquisition and its result-fitting examples.
-- `fit_models.py` only for reusable lmfit models, including the composed sine-plus-offset model.
-- `plot_results.py` for plots based on saved results.
-- `build_summary.py` for per-run Markdown and HTML summaries.
-- `configs/` for run parameters.
+```text
+configs/           YAML run configurations
+runs/              Generated run artifacts (ignored by Git)
+simulation.py      Simulation dispatch, saved results, and fitting examples
+fit_models.py      Reusable lmfit model objects
+plot_results.py    Figures built from saved results
+build_summary.py   Markdown and HTML built from saved artifacts
+pyproject.toml     Dependencies and Labframe hook paths
+```
+
+The starter's `simulation.py` saves `rabi_flop.npz`, reads it back for fitting, and saves a densely sampled `rabi_flop_fit.npz`. Plotting and summary generation consume those files without rerunning the simulation.
+
+## Run output
+
+Every invocation creates `runs/<timestamp>_<config-hash>/`:
+
+```text
+config.yaml
+meta.json
+output.log
+results/
+figures/
+summary.md
+summary.html
+```
+
+For normal work, copy or edit a configuration and run it explicitly:
+
+```bash
+uv run labframe run configs/my-run.yaml
+```
+
+Commit mode is enabled by default. It records the source state used at launch and commits changed launch source only after the run succeeds. Completed run folders are immutable records and should not be edited.
+
+## Customize
+
+- Keep simulation or acquisition output in the supplied `results/` directory.
+- Configure fit parameter values, bounds, and `vary` explicitly in `simulation.py`; do not use model guesses.
+- Keep reusable model objects in `fit_models.py`.
+- Build plots from `results/` and write them to `figures/`.
+- Build summaries from saved artifacts only.

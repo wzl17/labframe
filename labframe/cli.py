@@ -3,6 +3,7 @@
 import argparse
 from pathlib import Path
 
+from labframe import __version__
 from labframe.project import find_project_root, initialize_project
 from labframe.runner import run_project
 
@@ -12,7 +13,7 @@ def _build_parser() -> argparse.ArgumentParser:
         prog="labframe",
         description="Initialize and run reproducible simulation or experiment projects.",
     )
-    parser.add_argument("--version", action="version", version="%(prog)s 0.1.0")
+    parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     init_parser = subparsers.add_parser("init", help="create a project from the bundled template")
