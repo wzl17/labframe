@@ -2,6 +2,7 @@
 
 import html
 import json
+import os
 from pathlib import Path
 from urllib.parse import quote
 
@@ -48,11 +49,16 @@ def _run_type(config: dict) -> str:
     return str(value) if value is not None else "unknown"
 
 
-def rebuild_index(project_root: Path) -> Path:
+def _relative_href(path: Path, start: Path) -> str:
+    relative = Path(os.path.relpath(path, start)).as_posix()
+    return quote(relative, safe="/")
+
+
+def rebuild_index(project_root: Path, runs_dir: Path | None = None) -> Path:
     """Create the project home page from completed per-run HTML summaries."""
     project_root = project_root.resolve()
+    runs_dir = runs_dir.resolve() if runs_dir is not None else project_root / "runs"
     grouped_entries: dict[str, list[dict]] = {}
-    runs_dir = project_root / "runs"
 
     if runs_dir.is_dir():
         for run_dir in sorted(runs_dir.iterdir(), key=lambda path: path.name, reverse=True):
@@ -64,7 +70,7 @@ def rebuild_index(project_root: Path) -> Path:
             grouped_entries.setdefault(run_type, []).append(
                 {
                     "name": run_dir.name,
-                    "href": quote(summary_path.relative_to(project_root).as_posix(), safe="/"),
+                    "href": _relative_href(summary_path, project_root),
                     "started_at": meta.get("started_at"),
                     "runtime_seconds": meta.get("runtime_seconds"),
                     "status": meta.get("status", "unknown"),
@@ -119,9 +125,20 @@ main{{width:min(64rem,calc(100% - 2rem));margin:0 auto;padding:3rem 0 5rem}}h1{{
 def build_summary(run_dir: Path) -> None:
     """Create summary.md and summary.html without rerunning earlier stages."""
     run_dir = run_dir.resolve()
-    project_root = run_dir.parent.parent
     config = yaml.safe_load((run_dir / "config.yaml").read_text(encoding="utf-8"))
     meta = json.loads((run_dir / "meta.json").read_text(encoding="utf-8"))
+    configured_project_root = meta.get("project_root")
+    configured_runs_dir = meta.get("runs_dir")
+    project_root = (
+        Path(configured_project_root).resolve()
+        if isinstance(configured_project_root, str) and configured_project_root
+        else run_dir.parent.parent
+    )
+    runs_dir = (
+        Path(configured_runs_dir).resolve()
+        if isinstance(configured_runs_dir, str) and configured_runs_dir
+        else run_dir.parent
+    )
     output = (run_dir / "output.log").read_text(encoding="utf-8").rstrip() or "No output captured."
     summary_path = run_dir / "summary.md"
     notes = _existing_notes(summary_path)
@@ -160,11 +177,12 @@ Runtime: `{meta.get("runtime_seconds", "unknown")} s`
     _write_text(summary_path, summary)
 
     result_items = "".join(f"<li><code>results/{html.escape(name)}</code></li>" for name in result_files)
+    index_href = html.escape(_relative_href(project_root / "index.html", run_dir), quote=True)
     document = f"""<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width">
 <title>{html.escape(run_dir.name)} · Labframe</title>
 <style>body{{font:16px/1.55 system-ui;max-width:64rem;margin:3rem auto;padding:0 1rem;color:#17202a}}pre{{overflow:auto;background:#f3f5f7;padding:1rem;border-radius:.5rem}}img{{max-width:100%}}</style></head>
-<body><p><a href="../../index.html">← All runs</a></p><h1>Run summary</h1>
+<body><p><a href="{index_href}">← All runs</a></p><h1>Run summary</h1>
 <p>Status: <code>{html.escape(str(meta.get("status", "unknown")))}</code> · Git: <code>{html.escape(str(meta.get("git_commit") or "pending"))}</code></p>
 <h2>Parameters</h2><pre>{html.escape(config_yaml)}</pre>
 <h2>Results</h2><ul>{result_items}</ul>
@@ -172,4 +190,4 @@ Runtime: `{meta.get("runtime_seconds", "unknown")} s`
 <h2>Output</h2><pre>{html.escape(output)}</pre><h2>Notes</h2><p>{html.escape(notes)}</p></body></html>
 """
     _write_text(run_dir / "summary.html", document)
-    rebuild_index(project_root)
+    rebuild_index(project_root, runs_dir)

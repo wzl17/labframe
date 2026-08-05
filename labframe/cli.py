@@ -19,6 +19,12 @@ def _build_parser() -> argparse.ArgumentParser:
     init_parser = subparsers.add_parser("init", help="create a project from the bundled template")
     init_parser.add_argument("directory", type=Path, help="new project directory")
     init_parser.add_argument("--name", help="project name used in generated files")
+    init_parser.add_argument(
+        "--runs-dir",
+        type=Path,
+        metavar="PATH",
+        help="directory for run folders; relative paths use the project root (default: runs)",
+    )
     dependency_group = init_parser.add_mutually_exclusive_group()
     dependency_group.add_argument(
         "--no-venv",
@@ -75,6 +81,7 @@ def main() -> None:
             sync=not args.no_sync,
             create_venv=not args.no_venv,
             initialize_git=not args.no_git,
+            runs_dir=args.runs_dir,
         )
         print(project_root)
         return
@@ -90,7 +97,11 @@ def main() -> None:
             message=args.message,
             yes=args.yes,
         )
-        print(run_dir.relative_to(project_root))
+        try:
+            displayed_run_dir = run_dir.relative_to(project_root)
+        except ValueError:
+            displayed_run_dir = run_dir
+        print(displayed_run_dir)
         return
 
     parser.error(f"unknown command: {args.command}")

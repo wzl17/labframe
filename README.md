@@ -40,6 +40,7 @@ By default, `labframe init /path/to/my-experiment`:
 
 - creates `/path/to/my-experiment`; it stops if that directory already contains files;
 - derives the project name from the directory name, normalizes it, and writes it into the generated files;
+- writes `.labframe.yaml` with the directory used to store run artifacts;
 - copies the complete starter project, including configurations and working simulation, fitting, plotting, and summary hooks;
 - writes a standalone `pyproject.toml` and connects it to the editable Labframe source checkout when Labframe is run from that checkout;
 - runs `uv sync`, which creates the project environment, resolves its dependencies, and writes `uv.lock`;
@@ -51,12 +52,21 @@ The initializer accepts these options:
 |---|---|
 | `directory` | Required path of the new project. The directory must be absent or empty. |
 | `--name NAME` | Use `NAME` in generated files instead of deriving the name from the directory. |
+| `--runs-dir PATH` | Store run folders in `PATH`. Relative paths are resolved from the new project root. The default is `runs`. |
 | `--no-venv` | Use a containing project's environment. This omits the standalone `pyproject.toml`, does not invoke uv, and creates neither `.venv` nor `uv.lock`. |
 | `--no-sync` | Write the standalone `pyproject.toml` but do not invoke uv. Dependency resolution and environment creation can be performed later with `uv sync`. |
 | `--no-git` | Do not create an independent Git repository or initial commit. Use this only when the generated project is inside an existing Git repository with at least one commit. |
 | `-h`, `--help` | Show the `init` command help. |
 
 `--no-venv` and `--no-sync` are mutually exclusive. Use `--no-venv` for a simulation nested inside an existing uv project; the containing project's `pyproject.toml`, `uv.lock`, and `.venv` own its dependencies. Use `--no-sync` for a standalone project whose first uv synchronization should be deferred, such as during offline scaffolding.
+
+For example, initialize a project whose potentially large run artifacts live on another volume:
+
+```bash
+labframe init /path/to/my-experiment --runs-dir /data/my-experiment-runs
+```
+
+Use a directory dedicated to that project. Labframe creates it during initialization and records the path in `.labframe.yaml`; later `labframe run` commands use it automatically.
 
 ### Git repository requirement
 
@@ -83,6 +93,7 @@ The containing project must declare `labframe` and the dependencies imported by 
 my-experiment/
 ├── .git/
 ├── .venv/
+├── .labframe.yaml
 ├── configs/
 │   ├── default.yaml
 │   └── smoke.yaml
@@ -102,9 +113,10 @@ my-experiment/
 |---|---|
 | `.git/` | Independent Git repository created by `labframe init`. With `--no-git`, it is absent and a containing repository must provide source history instead. |
 | `.venv/` | Project-specific Python environment created by `uv sync`. It is absent with `--no-venv`, which uses the containing project's environment, and initially absent with `--no-sync`. |
+| `.labframe.yaml` | Project settings, including the run-artifact directory selected by `labframe init --runs-dir`. |
 | `configs/default.yaml` | Normal project configuration. `labframe run` selects this file when no configuration is given. |
 | `configs/smoke.yaml` | Small, fast configuration for validating the complete workflow. |
-| `runs/` | Contains one immutable artifact directory per run. Generated contents are ignored by Git. |
+| `runs/` | Default location containing one immutable artifact directory per run. It is absent when `--runs-dir` selects another location. Generated contents are ignored by Git. |
 | `runs/.gitkeep` | Keeps the initially empty `runs/` directory in Git. |
 | `simulation.py` | Reads the selected configuration, runs the simulation or acquisition, writes numerical data to `results/`, and performs fitting examples. |
 | `fit_models.py` | Defines reusable lmfit model objects imported by `simulation.py`. Parameter values, bounds, and `vary` settings stay in `simulation.py`. |
@@ -175,7 +187,7 @@ Do not edit a completed run directory. In commit mode, Labframe runs from the ca
 
 ### Run output
 
-Every successful invocation creates a run folder and rebuilds the project home page:
+Every successful invocation creates a run folder in the directory configured by `.labframe.yaml` and rebuilds the project home page. With the default setting, the layout is:
 
 ```text
 index.html
@@ -199,7 +211,7 @@ runs/
 | `output.log` | Standard output and error captured from the simulation and plotting stages. |
 | `summary.md` | Markdown report built from the saved artifacts. |
 | `summary.html` | Standalone HTML version of the run report. |
-| `index.html` | Standalone project home page linking all run summaries and grouping them by configured run type. It is regenerated after each successful run and ignored by Git. |
+| `index.html` | Standalone project home page linking all run summaries and grouping them by configured run type. It remains in the project root even when run folders are stored elsewhere, is regenerated after each successful run, and is ignored by Git. |
 
 Open `index.html` directly in a browser; no local server is required. Runs appear newest first within groups. The generated starter reads the group from `simulation.type`; customized projects may instead use `experiment.type`, top-level `run_type`, or top-level `type`.
 

@@ -18,7 +18,7 @@ from pathlib import Path
 
 import yaml
 
-from labframe.project import PROJECT_HOOKS, is_project_root
+from labframe.project import PROJECT_HOOKS, is_project_root, project_runs_dir
 
 
 class _Tee:
@@ -71,10 +71,10 @@ def _load_config(path: Path) -> dict:
     return config
 
 
-def _new_run_dir(project_root: Path, config_bytes: bytes) -> Path:
+def _new_run_dir(runs_dir: Path, config_bytes: bytes) -> Path:
     timestamp = datetime.now().astimezone().strftime("%Y%m%d-%H%M%S")
     config_hash = hashlib.sha256(config_bytes).hexdigest()[:8]
-    base = project_root / "runs" / f"{timestamp}_{config_hash}"
+    base = runs_dir / f"{timestamp}_{config_hash}"
     candidate = base
     counter = 1
     while candidate.exists():
@@ -197,6 +197,7 @@ def run_project(
     project_root = project_root.resolve()
     if not is_project_root(project_root):
         raise ValueError(f"Not a Labframe project: {project_root}")
+    runs_dir = project_runs_dir(project_root)
     config_path, config_relative = _config_path(project_root, config)
     starting_commit = _git(project_root, "rev-parse", "HEAD")
     dirty = _git(project_root, "status", "--porcelain")
@@ -230,10 +231,12 @@ def run_project(
             source_root = project_root
             config_bytes = config_path.read_bytes()
 
-        run_dir = _new_run_dir(project_root, config_bytes)
+        run_dir = _new_run_dir(runs_dir, config_bytes)
         (run_dir / "config.yaml").write_bytes(config_bytes)
         meta = {
             "git_commit": git_commit,
+            "project_root": str(project_root),
+            "runs_dir": str(runs_dir),
             "started_at": started_at,
             "runtime_seconds": 0.0,
             "status": "running",
@@ -270,6 +273,8 @@ def run_project(
                 run_dir,
                 {
                     "git_commit": git_commit,
+                    "project_root": str(project_root),
+                    "runs_dir": str(runs_dir),
                     "started_at": started_at,
                     "runtime_seconds": round(time.monotonic() - started, 3),
                     "status": "failed",

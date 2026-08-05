@@ -6,11 +6,14 @@ import shutil
 import subprocess
 from pathlib import Path
 
+import yaml
+
 PROJECT_HOOKS = {
     "simulation": ("simulation.py", "run_simulation"),
     "plot": ("plot_results.py", "plot_results"),
     "summary": ("build_summary.py", "build_summary"),
 }
+PROJECT_SETTINGS = ".labframe.yaml"
 _TEMPLATE_SUFFIX = ".tmpl"
 
 
@@ -26,6 +29,24 @@ def find_project_root(start: Path) -> Path:
         if is_project_root(directory):
             return directory
     raise FileNotFoundError(f"No Labframe project found at or above {candidate}")
+
+
+def project_runs_dir(project_root: Path) -> Path:
+    """Return the configured directory that contains a project's run folders."""
+    project_root = project_root.resolve()
+    settings_path = project_root / PROJECT_SETTINGS
+    if not settings_path.is_file():
+        return project_root / "runs"
+
+    settings = yaml.safe_load(settings_path.read_text(encoding="utf-8"))
+    if not isinstance(settings, dict):
+        raise ValueError(f"The settings root must be a mapping: {settings_path}")
+    configured = settings.get("runs_dir", "runs")
+    if not isinstance(configured, str) or not configured.strip():
+        raise ValueError(f"runs_dir must be a non-empty path string: {settings_path}")
+
+    path = Path(configured)
+    return (path if path.is_absolute() else project_root / path).resolve()
 
 
 def _normalized_name(target: Path, requested_name: str | None) -> str:
@@ -68,11 +89,14 @@ def _copy_template(
     context: dict[str, str],
     *,
     include_pyproject: bool,
+    include_default_runs: bool,
 ) -> None:
     for source in sorted(template_root.rglob("*")):
         if "__pycache__" in source.parts or source.suffix in {".pyc", ".pyo"}:
             continue
         relative = source.relative_to(template_root)
+        if not include_default_runs and relative.parts[0] == "runs":
+            continue
         if not include_pyproject and relative == Path("pyproject.toml.tmpl"):
             continue
         destination_relative = relative.with_suffix("") if source.name.endswith(_TEMPLATE_SUFFIX) else relative
@@ -122,6 +146,7 @@ def initialize_project(
     sync: bool = True,
     create_venv: bool = True,
     initialize_git: bool = True,
+    runs_dir: Path | None = None,
 ) -> Path:
     """Create a Labframe project and optionally prepare uv and Git.
 
@@ -131,7 +156,21 @@ def initialize_project(
     target = directory.resolve()
     if target.exists() and any(target.iterdir()):
         raise FileExistsError(f"Project directory is not empty: {target}")
+
+    requested_runs_dir = runs_dir or Path("runs")
+    resolved_runs_dir = (
+        requested_runs_dir
+        if requested_runs_dir.is_absolute()
+        else target / requested_runs_dir
+    ).resolve()
+    if resolved_runs_dir == target:
+        raise ValueError("The runs directory cannot be the project root")
     target.mkdir(parents=True, exist_ok=True)
+
+    if requested_runs_dir.is_absolute():
+        stored_runs_dir = str(resolved_runs_dir)
+    else:
+        stored_runs_dir = Path(os.path.relpath(resolved_runs_dir, target)).as_posix()
 
     project_name = _normalized_name(target, name)
     template_root = Path(__file__).resolve().parent / "project_template"
@@ -142,7 +181,20 @@ def initialize_project(
         target,
         _template_context(target, project_name),
         include_pyproject=create_venv,
+        include_default_runs=resolved_runs_dir == target / "runs",
     )
+    (target / PROJECT_SETTINGS).write_text(
+        yaml.safe_dump({"runs_dir": stored_runs_dir}, sort_keys=False),
+        encoding="utf-8",
+    )
+    resolved_runs_dir.mkdir(parents=True, exist_ok=True)
+    try:
+        resolved_runs_dir.relative_to(target)
+    except ValueError:
+        pass
+    else:
+        if resolved_runs_dir != target / "runs":
+            (resolved_runs_dir / ".gitignore").write_text("*\n!.gitignore\n", encoding="utf-8")
 
     if sync and create_venv:
         _run(["uv", "sync"], target)

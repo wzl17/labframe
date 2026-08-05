@@ -1,5 +1,6 @@
 import importlib.util
 import json
+import os
 import subprocess
 import sys
 import tempfile
@@ -28,9 +29,9 @@ def _load_module(name: str, path: Path):
 
 
 class RunnerTest(unittest.TestCase):
-    def _project(self, parent: Path) -> Path:
+    def _project(self, parent: Path, *, runs_dir: Path | None = None) -> Path:
         project_root = parent / "rabi-test"
-        initialize_project(project_root, sync=False, initialize_git=False)
+        initialize_project(project_root, sync=False, initialize_git=False, runs_dir=runs_dir)
         _git(project_root, "init")
         _git(project_root, "add", "-A")
         subprocess.run(
@@ -134,6 +135,34 @@ class RunnerTest(unittest.TestCase):
                 ).stdout,
                 "",
             )
+
+    def test_run_uses_external_directory_configured_during_initialization(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            parent = Path(temporary_directory)
+            external_runs_dir = parent / "run-artifacts"
+            project_root = self._project(parent, runs_dir=external_runs_dir)
+
+            run_dir = run_project(
+                project_root,
+                Path("configs/smoke.yaml"),
+                commit=False,
+                message=None,
+                yes=False,
+            )
+
+            self.assertEqual(run_dir.parent, external_runs_dir.resolve())
+            self.assertFalse((project_root / "runs").exists())
+            meta = json.loads((run_dir / "meta.json").read_text(encoding="utf-8"))
+            self.assertEqual(meta["project_root"], str(project_root.resolve()))
+            self.assertEqual(meta["runs_dir"], str(external_runs_dir.resolve()))
+
+            summary_html = (run_dir / "summary.html").read_text(encoding="utf-8")
+            index_href = Path(os.path.relpath((project_root / "index.html").resolve(), run_dir)).as_posix()
+            self.assertIn(f'href="{index_href}"', summary_html)
+
+            index_html = (project_root / "index.html").read_text(encoding="utf-8")
+            summary_href = Path(os.path.relpath(run_dir / "summary.html", project_root.resolve())).as_posix()
+            self.assertIn(f'href="{summary_href}"', index_html)
 
     def test_index_groups_existing_summaries_by_run_type_newest_first(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:

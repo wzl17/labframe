@@ -16,7 +16,8 @@ The smoke configuration is intentionally small and `--no-commit` requires a clea
 
 ```text
 configs/           YAML run configurations
-runs/              Generated run artifacts (ignored by Git)
+.labframe.yaml     Run-artifact directory setting
+runs/              Default run-artifact directory (ignored by Git)
 index.html         Generated run home page (created after the first run and ignored by Git)
 simulation.py      Simulation dispatch, saved results, and fitting examples
 fit_models.py      Reusable lmfit model objects
@@ -29,7 +30,7 @@ The starter's `simulation.py` saves `rabi_flop.npz`, reads it back for fitting, 
 
 ## Run output
 
-Every invocation creates `runs/<timestamp>_<config-hash>/`:
+Every invocation creates `<runs-dir>/<timestamp>_<config-hash>/`, where `<runs-dir>` is configured in `.labframe.yaml` and defaults to `runs/`:
 
 ```text
 config.yaml
@@ -41,7 +42,7 @@ summary.md
 summary.html
 ```
 
-After a successful run, the summary hook also rebuilds `index.html` in the project root. Open it directly in a browser to view every run that has a `summary.html`, grouped by the configured run type. Each per-run HTML summary links back to this home page.
+After a successful run, the summary hook also rebuilds `index.html` in the project root, including when the configured run directory is outside the project. Open it directly in a browser to view every run that has a `summary.html`, grouped by the configured run type. Each per-run HTML summary links back to this home page.
 
 For normal work, copy or edit a configuration and run it explicitly:
 
