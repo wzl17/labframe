@@ -201,7 +201,7 @@ runs/
 | `summary.html` | Standalone HTML version of the run report. |
 | `index.html` | Standalone project home page linking all run summaries and grouping them by configured run type. It is regenerated after each successful run and ignored by Git. |
 
-Open `index.html` directly in a browser; no local server is required. Runs appear newest first within groups. The generated starter reads the group from `simulation.type`; customized projects may instead use `experiment.type`, `acquisition.type`, top-level `run_type`, or top-level `type`.
+Open `index.html` directly in a browser; no local server is required. Runs appear newest first within groups. The generated starter reads the group from `simulation.type`; customized projects may instead use `experiment.type`, top-level `run_type`, or top-level `type`.
 
 ## 4. Customize a generated project
 

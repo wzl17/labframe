@@ -36,7 +36,7 @@ def _read_mapping(path: Path, *, yaml_document: bool = False) -> dict:
 
 
 def _run_type(config: dict) -> str:
-    for section_name in ("simulation", "experiment", "acquisition"):
+    for section_name in ("simulation", "experiment"):
         section = config.get(section_name)
         if not isinstance(section, dict):
             continue

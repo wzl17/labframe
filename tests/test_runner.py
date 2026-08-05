@@ -140,6 +140,9 @@ class RunnerTest(unittest.TestCase):
             project_root = Path(temporary_directory) / "grouped-runs"
             initialize_project(project_root, sync=False, initialize_git=False)
             summary_module = _load_module("generated_grouped_summary", project_root / "build_summary.py")
+            self.assertEqual(summary_module._run_type({"simulation": {"type": "rabi_flop"}}), "rabi_flop")
+            self.assertEqual(summary_module._run_type({"experiment": {"type": "ramsey"}}), "ramsey")
+            self.assertEqual(summary_module._run_type({"acquisition": {"type": "scan"}}), "unknown")
 
             runs = (
                 ("20260806-100000_aaaaaaaa", "rabi_flop"),
