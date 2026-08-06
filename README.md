@@ -48,8 +48,10 @@ Replace `/path/to/labframe` with the clone created above. If the Poetry project 
 When Labframe is added to an existing uv or Poetry project, it also provides
 `labframe-new-project`. This is an example shortcut for a common nested-project
 setup: it initializes without a new virtual environment or Git repository and
-stores run artifacts under `~/data/labframe`. Any arguments after the command
-are passed to `labframe init`.
+stores each project's run artifacts under
+`~/data/labframe/<normalized-project-name>`. Any arguments after the command
+are passed to `labframe init`; an explicit `--runs-dir` replaces this storage
+default.
 
 ```bash
 # From an existing uv project

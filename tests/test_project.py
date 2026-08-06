@@ -25,10 +25,31 @@ class ProjectTest(unittest.TestCase):
                 "--no-venv",
                 "--no-git",
                 "--runs-dir",
-                str(Path.home() / "data" / "labframe"),
+                str(Path.home() / "data" / "labframe" / "rabi-scan"),
                 "my-simulation",
                 "--name",
                 "Rabi scan",
+            ],
+        )
+
+    def test_new_project_command_preserves_an_explicit_runs_directory(self) -> None:
+        with (
+            patch("labframe.defaults.subprocess.call", return_value=0) as call,
+            patch("sys.argv", ["labframe-new-project", "motion-analysis", "--runs-dir", "/data/runs"]),
+        ):
+            with self.assertRaisesRegex(SystemExit, "0"):
+                new_project()
+
+        self.assertEqual(
+            call.call_args.args[0],
+            [
+                "labframe",
+                "init",
+                "--no-venv",
+                "--no-git",
+                "motion-analysis",
+                "--runs-dir",
+                "/data/runs",
             ],
         )
 
