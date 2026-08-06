@@ -10,6 +10,12 @@ From this directory:
 uv run labframe run --no-commit configs/smoke.yaml
 ```
 
+If this project is managed by Poetry and Labframe was added from its local checkout with `poetry add /path/to/labframe`, use:
+
+```bash
+poetry run labframe run --no-commit configs/smoke.yaml
+```
+
 The smoke configuration is intentionally small and `--no-commit` requires a clean working tree. Always pass `configs/smoke.yaml` explicitly during automated validation; omitting the configuration selects `configs/default.yaml`.
 
 ## Project files
@@ -48,6 +54,12 @@ For normal work, copy or edit a configuration and run it explicitly:
 
 ```bash
 uv run labframe run configs/my-run.yaml
+```
+
+For a Poetry-managed project, the equivalent command is:
+
+```bash
+poetry run labframe run configs/my-run.yaml
 ```
 
 `.labframe.yaml` also controls the default commit mode for `labframe run`:

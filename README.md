@@ -2,7 +2,11 @@
 
 Labframe is a command-line tool for creating and running independent simulation or experiment projects. Each project keeps its configuration, source provenance, numerical results, figures, logs, and summaries together.
 
-## 1. Install uv and Labframe
+## 1. Clone and install Labframe
+
+Labframe is currently installed from a local source checkout. Choose either uv or Poetry for the environment that will run it.
+
+### uv
 
 [Install uv](https://docs.astral.sh/uv/getting-started/installation/) on your workstation first. On macOS or Linux, the official standalone installer is:
 
@@ -16,18 +20,32 @@ Then confirm that it is available:
 uv --version
 ```
 
-Then install Labframe from this source checkout. The editable installation makes the `labframe` command available while keeping it connected to the local source code:
+Clone Labframe, then install it as an editable uv tool. The editable installation makes the `labframe` command available while keeping it connected to the local source code:
 
 ```bash
+git clone https://github.com/wzl17/labframe.git /path/to/labframe
 uv tool install --editable /path/to/labframe
 labframe --version
 ```
 
-Replace `/path/to/labframe` with the path to this repository.
+### Poetry
+
+[Install Poetry](https://python-poetry.org/docs/#installation), then clone Labframe and add the checkout to the Poetry project that will run it:
+
+```bash
+git clone https://github.com/wzl17/labframe.git /path/to/labframe
+cd /path/to/my-poetry-project
+poetry add /path/to/labframe
+poetry run labframe --version
+```
+
+`poetry add /path/to/labframe` records Labframe as a local path dependency and makes the `labframe` command available through `poetry run`. Use `poetry add --editable /path/to/labframe` instead if changes made in the checkout should be reflected without reinstalling it.
+
+Replace `/path/to/labframe` with the clone created above. If the Poetry project is an existing generated Labframe project, its `pyproject.toml` already declares the starter's scientific dependencies. A different containing Poetry project must declare whichever dependencies its simulation or experiment imports.
 
 ## 2. Create a project
 
-Create a new, independent project anywhere on your filesystem:
+With the uv tool installation, create a new, independent project anywhere on your filesystem:
 
 ```bash
 labframe init /path/to/my-experiment
@@ -53,12 +71,12 @@ The initializer accepts these options:
 | `directory` | Required path of the new project. The directory must be absent or empty. |
 | `--name NAME` | Use `NAME` in generated files instead of deriving the name from the directory. |
 | `--runs-dir PATH` | Store run folders in `PATH`. Relative paths are resolved from the new project root. The default is `runs`. |
-| `--no-venv` | Use a containing project's environment. This omits the standalone `pyproject.toml`, does not invoke uv, and creates neither `.venv` nor `uv.lock`. |
+| `--no-venv` | Use a containing project's uv or Poetry environment. This omits the standalone `pyproject.toml`, does not invoke uv, and creates neither `.venv` nor `uv.lock`. |
 | `--no-sync` | Write the standalone `pyproject.toml` but do not invoke uv. Dependency resolution and environment creation can be performed later with `uv sync`. |
 | `--no-git` | Do not create an independent Git repository or initial commit. Use this only when the generated project is inside an existing Git repository with at least one commit. |
 | `-h`, `--help` | Show the `init` command help. |
 
-`--no-venv` and `--no-sync` are mutually exclusive. Use `--no-venv` for a simulation nested inside an existing uv project; the containing project's `pyproject.toml`, `uv.lock`, and `.venv` own its dependencies. Use `--no-sync` for a standalone project whose first uv synchronization should be deferred, such as during offline scaffolding.
+`--no-venv` and `--no-sync` are mutually exclusive. Use `--no-venv` for a simulation nested inside an existing uv or Poetry project; the containing project owns its dependencies, lock file, and environment. Use `--no-sync` for a standalone project whose first uv synchronization should be deferred, such as during offline scaffolding.
 
 For example, initialize a project whose potentially large run artifacts live on another volume:
 
@@ -86,6 +104,17 @@ uv run labframe run --project my-simulation configs/smoke.yaml
 ```
 
 The containing project must declare `labframe` and the dependencies imported by the simulation. Running `uv run` from the containing project uses its environment; no environment is created inside `my-simulation`.
+
+The equivalent Poetry workflow starts by adding the cloned Labframe checkout and the dependencies required by the generated starter to the containing project:
+
+```bash
+cd /path/to/my-poetry-project
+poetry add /path/to/labframe "lmfit>=1.3" "matplotlib>=3.10" "numpy>=2.2" "pyyaml>=6.0" "qutip>=5.3"
+poetry run labframe init --no-venv --no-git my-simulation
+poetry run labframe run --project my-simulation configs/smoke.yaml
+```
+
+This example assumes `/path/to/my-poetry-project` is already a Git repository with a `HEAD` commit. `--no-venv` leaves dependency management to Poetry, and `--no-git` makes the generated simulation use that containing repository. Omit dependencies that the containing project already declares.
 
 ### Generated project files
 
@@ -133,11 +162,21 @@ The bundled starter is a complete Rabi-flop example: QuTiP generates numerical d
 
 Before running, confirm that the generated project has either its own repository created by `labframe init` or a containing repository, and that the selected repository has at least one commit. Labframe uses that repository for source provenance in both commit and `--no-commit` modes.
 
-From the generated project directory, the normal command is:
+From a generated project managed by uv, the normal command is:
 
 ```bash
 uv run labframe run
 ```
+
+For an existing generated project managed by Poetry, add the local Labframe checkout once and use the Poetry command prefix:
+
+```bash
+cd /path/to/my-experiment
+poetry add /path/to/labframe
+poetry run labframe run
+```
+
+The two run commands have the same Labframe arguments. In the examples below, replace `uv run` with `poetry run` when the project environment is managed by Poetry.
 
 This uses `configs/default.yaml` and the `commit` setting in `.labframe.yaml` (new projects use `true`). Labframe finds the project root, captures the source state at launch when commit mode is enabled, and runs the following pipeline:
 
