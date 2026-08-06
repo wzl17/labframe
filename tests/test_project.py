@@ -3,8 +3,8 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from labframe.cli import _build_parser
-from labframe.project import find_project_root, initialize_project, project_runs_dir
+from labframe.cli import _build_parser, main
+from labframe.project import find_project_root, initialize_project, project_commit_default, project_runs_dir
 
 
 class ProjectTest(unittest.TestCase):
@@ -12,6 +12,13 @@ class ProjectTest(unittest.TestCase):
         args = _build_parser().parse_args(["init", "example", "--runs-dir", "../run-artifacts"])
 
         self.assertEqual(args.runs_dir, Path("../run-artifacts"))
+
+    def test_run_parser_leaves_commit_unspecified_until_project_settings_are_loaded(self) -> None:
+        parser = _build_parser()
+
+        self.assertIsNone(parser.parse_args(["run"]).commit)
+        self.assertTrue(parser.parse_args(["run", "--commit"]).commit)
+        self.assertFalse(parser.parse_args(["run", "--no-commit"]).commit)
 
     def test_initializer_materializes_editable_rabi_project(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
@@ -40,6 +47,7 @@ class ProjectTest(unittest.TestCase):
             self.assertNotIn("{{PROJECT_NAME}}", readme)
             self.assertEqual(find_project_root(project_root / "configs"), project_root.resolve())
             self.assertEqual(project_runs_dir(project_root), (project_root / "runs").resolve())
+            self.assertTrue(project_commit_default(project_root))
 
     def test_initializer_configures_an_external_runs_directory(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
@@ -56,7 +64,7 @@ class ProjectTest(unittest.TestCase):
 
             self.assertEqual(
                 (project_root / ".labframe.yaml").read_text(encoding="utf-8"),
-                "runs_dir: ../run-artifacts\n",
+                "runs_dir: ../run-artifacts\ncommit: true\n",
             )
             self.assertEqual(project_runs_dir(project_root), runs_dir.resolve())
             self.assertTrue(runs_dir.is_dir())
@@ -94,6 +102,41 @@ class ProjectTest(unittest.TestCase):
             self.assertFalse((project_root / "uv.lock").exists())
             self.assertFalse((project_root / ".venv").exists())
             self.assertEqual(find_project_root(project_root / "configs"), project_root.resolve())
+
+    def test_project_commit_default_reads_and_validates_settings(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            project_root = Path(temporary_directory) / "commit-settings"
+            initialize_project(project_root, sync=False, initialize_git=False)
+            settings_path = project_root / ".labframe.yaml"
+
+            settings_path.write_text("runs_dir: runs\ncommit: false\n", encoding="utf-8")
+            self.assertFalse(project_commit_default(project_root))
+
+            settings_path.write_text("runs_dir: runs\ncommit: sometimes\n", encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "commit must be true or false"):
+                project_commit_default(project_root)
+
+    def test_cli_uses_project_commit_default_unless_overridden(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            project_root = Path(temporary_directory) / "commit-settings"
+            initialize_project(project_root, sync=False, initialize_git=False)
+            (project_root / ".labframe.yaml").write_text(
+                "runs_dir: runs\ncommit: false\n", encoding="utf-8"
+            )
+            run_dir = project_root / "runs" / "test-run"
+
+            with patch("labframe.cli.run_project", return_value=run_dir) as run:
+                with patch("sys.argv", ["labframe", "run", "--project", str(project_root), "configs/smoke.yaml"]):
+                    main()
+            self.assertFalse(run.call_args.kwargs["commit"])
+
+            with patch("labframe.cli.run_project", return_value=run_dir) as run:
+                with patch(
+                    "sys.argv",
+                    ["labframe", "run", "--project", str(project_root), "--commit", "configs/smoke.yaml"],
+                ):
+                    main()
+            self.assertTrue(run.call_args.kwargs["commit"])
 
 
 if __name__ == "__main__":

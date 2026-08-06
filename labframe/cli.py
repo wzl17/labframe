@@ -4,7 +4,7 @@ import argparse
 from pathlib import Path
 
 from labframe import __version__
-from labframe.project import find_project_root, initialize_project
+from labframe.project import find_project_root, initialize_project, project_commit_default
 from labframe.runner import run_project
 
 
@@ -58,8 +58,8 @@ def _build_parser() -> argparse.ArgumentParser:
     run_parser.add_argument(
         "--commit",
         action=argparse.BooleanOptionalAction,
-        default=True,
-        help="commit the launch source after a successful run (default: enabled)",
+        default=None,
+        help="override the .labframe.yaml commit setting for this run",
     )
     run_parser.add_argument("--message", help="commit message for the launch source")
     run_parser.add_argument(
@@ -87,13 +87,14 @@ def main() -> None:
         return
 
     if args.command == "run":
-        if (args.message or args.yes) and not args.commit:
-            parser.error("--message and --yes cannot be used with --no-commit")
         project_root = args.project.resolve() if args.project else find_project_root(Path.cwd())
+        commit = args.commit if args.commit is not None else project_commit_default(project_root)
+        if (args.message or args.yes) and not commit:
+            parser.error("--message and --yes require commit mode; use --commit to override the project setting")
         run_dir = run_project(
             project_root,
             args.config,
-            commit=args.commit,
+            commit=commit,
             message=args.message,
             yes=args.yes,
         )

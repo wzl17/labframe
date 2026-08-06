@@ -40,7 +40,7 @@ By default, `labframe init /path/to/my-experiment`:
 
 - creates `/path/to/my-experiment`; it stops if that directory already contains files;
 - derives the project name from the directory name, normalizes it, and writes it into the generated files;
-- writes `.labframe.yaml` with the directory used to store run artifacts;
+- writes `.labframe.yaml` with the directory used to store run artifacts and the default Git commit mode;
 - copies the complete starter project, including configurations and working simulation, fitting, plotting, and summary hooks;
 - writes a standalone `pyproject.toml` and connects it to the editable Labframe source checkout when Labframe is run from that checkout;
 - runs `uv sync`, which creates the project environment, resolves its dependencies, and writes `uv.lock`;
@@ -66,7 +66,7 @@ For example, initialize a project whose potentially large run artifacts live on 
 labframe init /path/to/my-experiment --runs-dir /data/my-experiment-runs
 ```
 
-Use a directory dedicated to that project. Labframe creates it during initialization and records the path in `.labframe.yaml`; later `labframe run` commands use it automatically.
+Use a directory dedicated to that project. Labframe creates it during initialization and records the run-artifact path plus the default commit mode in `.labframe.yaml`; later `labframe run` commands use those settings automatically.
 
 ### Git repository requirement
 
@@ -75,7 +75,7 @@ Every generated project must resolve to a Git repository with an existing `HEAD`
 - Let the default `labframe init` create an independent repository and initial commit inside the generated project.
 - Use `labframe init --no-git` only when the generated project is nested inside an existing containing repository that already has a commit.
 
-`--no-git` skips creation of the independent repository; it does not enable Git-free runs. When Labframe finds a containing repository, default commit mode records changed launch source in that repository and advances its current branch after a successful run. Even `labframe run --no-commit` requires the resolved repository to have an existing `HEAD` commit.
+`--no-git` skips creation of the independent repository; it does not enable Git-free runs. When Labframe finds a containing repository and `.labframe.yaml` enables commit mode, it records changed launch source in that repository and advances its current branch after a successful run. Even no-commit runs require the resolved repository to have an existing `HEAD` commit.
 
 For a simulation inside an existing project and Git repository:
 
@@ -113,7 +113,7 @@ my-experiment/
 |---|---|
 | `.git/` | Independent Git repository created by `labframe init`. With `--no-git`, it is absent and a containing repository must provide source history instead. |
 | `.venv/` | Project-specific Python environment created by `uv sync`. It is absent with `--no-venv`, which uses the containing project's environment, and initially absent with `--no-sync`. |
-| `.labframe.yaml` | Project settings, including the run-artifact directory selected by `labframe init --runs-dir`. |
+| `.labframe.yaml` | Project settings: `runs_dir` is the run-artifact directory selected by `labframe init --runs-dir`, and `commit` is the default Git commit mode for `labframe run`. New projects use `commit: true`. |
 | `configs/default.yaml` | Normal project configuration. `labframe run` selects this file when no configuration is given. |
 | `configs/smoke.yaml` | Small, fast configuration for validating the complete workflow. |
 | `runs/` | Default location containing one immutable artifact directory per run. It is absent when `--runs-dir` selects another location. Generated contents are ignored by Git. |
@@ -139,7 +139,7 @@ From the generated project directory, the normal command is:
 uv run labframe run
 ```
 
-This uses `configs/default.yaml` and commit mode. Labframe finds the project root, captures the source state at launch, and runs the following pipeline:
+This uses `configs/default.yaml` and the `commit` setting in `.labframe.yaml` (new projects use `true`). Labframe finds the project root, captures the source state at launch when commit mode is enabled, and runs the following pipeline:
 
 ```text
 configuration -> simulation or acquisition and fitting -> saved results -> figures -> summaries
@@ -153,13 +153,20 @@ Fitting, plotting, and summary generation use saved artifacts; they do not rerun
 |---|---|
 | `config` | Optional configuration path relative to the project root. The default is `configs/default.yaml`. The file must be inside the project. |
 | `--project PATH` | Use `PATH` as the project root. Without it, Labframe searches upward for the conventional simulation, plotting, and summary hook files. |
-| `--commit` | Use commit mode. This is the default. The run uses the source state captured at launch and commits changed launch source only after a successful run. |
-| `--no-commit` | Run directly from the working tree without creating a source commit. This requires a clean working tree. |
+| `--commit` | Enable commit mode for this invocation, overriding `.labframe.yaml`. The run uses the source state captured at launch and commits changed launch source only after a successful run. |
+| `--no-commit` | Disable commit mode for this invocation, overriding `.labframe.yaml`. The run executes directly from the working tree and requires it to be clean. |
 | `--message TEXT` | Use `TEXT` as the commit message if commit mode needs to commit changed launch source. The default is `labframe run: <config-name>`. |
 | `--yes` | In commit mode, approve capturing dirty source without an interactive confirmation. This is useful in a non-interactive shell. |
 | `-h`, `--help` | Show the `run` command help. |
 
-`--message` and `--yes` apply only to commit mode and cannot be combined with `--no-commit`.
+Set the project default in `.labframe.yaml`:
+
+```yaml
+runs_dir: runs
+commit: true
+```
+
+`--commit` and `--no-commit` override this setting for one invocation. `--message` and `--yes` require the resulting mode to be commit mode; use `--commit` if the project default is `false`.
 
 Common invocations are:
 

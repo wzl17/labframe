@@ -31,22 +31,40 @@ def find_project_root(start: Path) -> Path:
     raise FileNotFoundError(f"No Labframe project found at or above {candidate}")
 
 
-def project_runs_dir(project_root: Path) -> Path:
-    """Return the configured directory that contains a project's run folders."""
+def _project_settings(project_root: Path) -> dict:
+    """Load a project's optional Labframe settings."""
     project_root = project_root.resolve()
     settings_path = project_root / PROJECT_SETTINGS
     if not settings_path.is_file():
-        return project_root / "runs"
+        return {}
 
     settings = yaml.safe_load(settings_path.read_text(encoding="utf-8"))
     if not isinstance(settings, dict):
         raise ValueError(f"The settings root must be a mapping: {settings_path}")
+    return settings
+
+
+def project_runs_dir(project_root: Path) -> Path:
+    """Return the configured directory that contains a project's run folders."""
+    project_root = project_root.resolve()
+    settings_path = project_root / PROJECT_SETTINGS
+    settings = _project_settings(project_root)
     configured = settings.get("runs_dir", "runs")
     if not isinstance(configured, str) or not configured.strip():
         raise ValueError(f"runs_dir must be a non-empty path string: {settings_path}")
 
     path = Path(configured)
     return (path if path.is_absolute() else project_root / path).resolve()
+
+
+def project_commit_default(project_root: Path) -> bool:
+    """Return whether runs should commit launch source unless the CLI overrides it."""
+    project_root = project_root.resolve()
+    settings_path = project_root / PROJECT_SETTINGS
+    configured = _project_settings(project_root).get("commit", True)
+    if not isinstance(configured, bool):
+        raise ValueError(f"commit must be true or false: {settings_path}")
+    return configured
 
 
 def _normalized_name(target: Path, requested_name: str | None) -> str:
@@ -184,7 +202,7 @@ def initialize_project(
         include_default_runs=resolved_runs_dir == target / "runs",
     )
     (target / PROJECT_SETTINGS).write_text(
-        yaml.safe_dump({"runs_dir": stored_runs_dir}, sort_keys=False),
+        yaml.safe_dump({"runs_dir": stored_runs_dir, "commit": True}, sort_keys=False),
         encoding="utf-8",
     )
     resolved_runs_dir.mkdir(parents=True, exist_ok=True)

@@ -15,8 +15,8 @@
 - Fitting, plotting, and summary generation must never rerun the simulation or experiment.
 - Do not modify completed run folders.
 - Every generated project run must resolve to a Git repository with an existing `HEAD` commit, either an independent repository created by `labframe init` or an existing containing repository used with `labframe init --no-git`.
-- `--no-git` skips only independent repository creation; it does not support Git-free runs, and default commit mode commits changed launch source to the resolved containing repository.
-- Commit mode is the default; use `labframe run --no-commit` only with a clean working tree in the resolved repository.
+- `--no-git` skips only independent repository creation; it does not support Git-free runs, and commit mode commits changed launch source to the resolved containing repository.
+- New projects set `commit: true` in `.labframe.yaml`; `labframe run` uses that project default unless `--commit` or `--no-commit` overrides it. No-commit runs require a clean working tree in the resolved repository.
 - A committed run must represent the source state at launch, not edits made while the run was active.
 - Never push, amend, rebase, reset, or rewrite existing Git history.
 - Do not add dependencies or workflow tools without a concrete need.

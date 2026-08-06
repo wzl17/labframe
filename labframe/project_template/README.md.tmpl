@@ -16,7 +16,7 @@ The smoke configuration is intentionally small and `--no-commit` requires a clea
 
 ```text
 configs/           YAML run configurations
-.labframe.yaml     Run-artifact directory setting
+.labframe.yaml     Run-artifact directory and default Git commit settings
 runs/              Default run-artifact directory (ignored by Git)
 index.html         Generated run home page (created after the first run and ignored by Git)
 simulation.py      Simulation dispatch, saved results, and fitting examples
@@ -50,7 +50,14 @@ For normal work, copy or edit a configuration and run it explicitly:
 uv run labframe run configs/my-run.yaml
 ```
 
-Commit mode is enabled by default. It records the source state used at launch and commits changed launch source only after the run succeeds. Completed run folders are immutable records and should not be edited.
+`.labframe.yaml` also controls the default commit mode for `labframe run`:
+
+```yaml
+runs_dir: runs
+commit: true
+```
+
+Set `commit: false` to make clean, no-commit runs the project default. Use `--commit` or `--no-commit` to override it for one invocation. Commit mode records the source state used at launch and commits changed launch source only after the run succeeds. Completed run folders are immutable records and should not be edited.
 
 ## Customize
 
