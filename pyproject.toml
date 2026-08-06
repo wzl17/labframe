@@ -9,12 +9,14 @@ description = "Initialize and run reproducible simulation and experiment project
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
+    "markdown>=3.8",
     "pyyaml>=6.0",
 ]
 
 [project.scripts]
 labframe = "labframe.cli:main"
 labframe-new-project = "labframe.defaults:new_project"
+labframe-update-index = "labframe.rebuild:update_index"
 
 [tool.setuptools.packages.find]
 include = ["labframe*"]

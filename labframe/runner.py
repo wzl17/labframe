@@ -64,6 +64,31 @@ def _write_meta(run_dir: Path, meta: dict) -> None:
     temporary.replace(run_dir / "meta.json")
 
 
+def _write_notes(run_dir: Path, notes: str) -> None:
+    temporary = run_dir / ".notes.md.tmp"
+    temporary.write_text(notes, encoding="utf-8")
+    temporary.replace(run_dir / "notes.md")
+
+
+def _collect_notes(notes: str | None, *, prompt: bool) -> str:
+    if notes is not None:
+        return notes
+    if not prompt or not sys.stdin.isatty():
+        return ""
+
+    print("Optional Markdown notes (enter a line containing only . to finish):")
+    lines = []
+    try:
+        while True:
+            line = input()
+            if line == ".":
+                return "\n".join(lines)
+            lines.append(line)
+    except (EOFError, KeyboardInterrupt):
+        print("\nNotes skipped.", file=sys.stderr)
+        return ""
+
+
 def _load_config(path: Path) -> dict:
     config = yaml.safe_load(path.read_text(encoding="utf-8"))
     if not isinstance(config, dict):
@@ -192,8 +217,10 @@ def run_project(
     commit: bool,
     message: str | None,
     yes: bool,
+    notes: str | None = None,
+    prompt_for_notes: bool = True,
 ) -> Path:
-    """Execute the complete project pipeline and return the immutable run folder."""
+    """Execute the pipeline and return the completed run folder; only notes.md stays editable."""
     project_root = project_root.resolve()
     if not is_project_root(project_root):
         raise ValueError(f"Not a Labframe project: {project_root}")
@@ -252,6 +279,7 @@ def run_project(
             status="completed",
         )
         _write_meta(run_dir, meta)
+        _write_notes(run_dir, _collect_notes(notes, prompt=prompt_for_notes))
         _run_summary(source_root, run_dir)
 
         if commit:

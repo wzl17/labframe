@@ -67,6 +67,17 @@ def _build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="skip confirmation before commit mode captures dirty source files",
     )
+    notes_group = run_parser.add_mutually_exclusive_group()
+    notes_group.add_argument(
+        "--notes",
+        metavar="TEXT",
+        help="save Markdown notes without prompting",
+    )
+    notes_group.add_argument(
+        "--no-notes-prompt",
+        action="store_true",
+        help="skip the optional interactive notes prompt",
+    )
     return parser
 
 
@@ -97,6 +108,8 @@ def main() -> None:
             commit=commit,
             message=args.message,
             yes=args.yes,
+            notes=args.notes,
+            prompt_for_notes=not args.no_notes_prompt,
         )
         try:
             displayed_run_dir = run_dir.relative_to(project_root)

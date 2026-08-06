@@ -7,18 +7,18 @@ from pathlib import Path
 from urllib.parse import quote
 
 import yaml
+from markdown import markdown
 
-DEFAULT_NOTES = "Add interpretation and follow-up notes here."
 
-
-def _existing_notes(summary_path: Path) -> str:
+def _legacy_notes(summary_path: Path) -> str:
     if not summary_path.is_file():
-        return DEFAULT_NOTES
-    text = summary_path.read_text(encoding="utf-8")
-    marker = "\n# Notes\n"
-    if marker not in text:
-        return DEFAULT_NOTES
-    return text.split(marker, maxsplit=1)[1].strip() or DEFAULT_NOTES
+        return ""
+    lines = summary_path.read_text(encoding="utf-8").splitlines(keepends=True)
+    for index, line in enumerate(lines):
+        if line.rstrip("\r\n") == "# Notes":
+            notes = "".join(lines[index + 1 :])
+            return notes.removeprefix("\r\n").removeprefix("\n")
+    return ""
 
 
 def _write_text(path: Path, text: str) -> None:
@@ -27,13 +27,26 @@ def _write_text(path: Path, text: str) -> None:
     temporary.replace(path)
 
 
-def _read_mapping(path: Path, *, yaml_document: bool = False) -> dict:
+def _completed_run_data(run_dir: Path) -> tuple[dict, dict] | None:
     try:
-        text = path.read_text(encoding="utf-8")
-        value = yaml.safe_load(text) if yaml_document else json.loads(text)
-    except (FileNotFoundError, json.JSONDecodeError, yaml.YAMLError):
-        return {}
-    return value if isinstance(value, dict) else {}
+        config_text = (run_dir / "config.yaml").read_text(encoding="utf-8")
+        meta_text = (run_dir / "meta.json").read_text(encoding="utf-8")
+        config = yaml.safe_load(config_text)
+        meta = json.loads(meta_text)
+    except (OSError, UnicodeError, json.JSONDecodeError, yaml.YAMLError):
+        return None
+    if not isinstance(config, dict) or not isinstance(meta, dict) or meta.get("status") != "completed":
+        return None
+    return config, meta
+
+
+def _read_notes(run_dir: Path) -> str:
+    notes_path = run_dir / "notes.md"
+    if notes_path.is_file():
+        return notes_path.read_text(encoding="utf-8")
+    notes = _legacy_notes(run_dir / "summary.md")
+    _write_text(notes_path, notes)
+    return notes
 
 
 def _run_type(config: dict) -> str:
@@ -63,8 +76,11 @@ def rebuild_index(project_root: Path, runs_dir: Path | None = None) -> Path:
             summary_path = run_dir / "summary.html"
             if not run_dir.is_dir() or not summary_path.is_file():
                 continue
-            meta = _read_mapping(run_dir / "meta.json")
-            run_type = _run_type(_read_mapping(run_dir / "config.yaml", yaml_document=True))
+            saved_data = _completed_run_data(run_dir)
+            if saved_data is None:
+                continue
+            config, meta = saved_data
+            run_type = _run_type(config)
             grouped_entries.setdefault(run_type, []).append(
                 {
                     "name": run_dir.name,
@@ -126,20 +142,15 @@ def build_summary(run_dir: Path) -> None:
     config = yaml.safe_load((run_dir / "config.yaml").read_text(encoding="utf-8"))
     meta = json.loads((run_dir / "meta.json").read_text(encoding="utf-8"))
     configured_project_root = meta.get("project_root")
-    configured_runs_dir = meta.get("runs_dir")
     project_root = (
         Path(configured_project_root).resolve()
         if isinstance(configured_project_root, str) and configured_project_root
         else run_dir.parent.parent
     )
-    runs_dir = (
-        Path(configured_runs_dir).resolve()
-        if isinstance(configured_runs_dir, str) and configured_runs_dir
-        else run_dir.parent
-    )
+    runs_dir = run_dir.parent
     output = (run_dir / "output.log").read_text(encoding="utf-8").rstrip() or "No output captured."
     summary_path = run_dir / "summary.md"
-    notes = _existing_notes(summary_path)
+    notes = _read_notes(run_dir)
     config_yaml = yaml.safe_dump(config, sort_keys=False).rstrip()
     result_files = sorted(path.name for path in (run_dir / "results").glob("*.npz"))
     result_lines = "\n".join(f"- `results/{name}`" for name in result_files)
@@ -185,7 +196,7 @@ Runtime: `{meta.get("runtime_seconds", "unknown")} s`
 <h2>Parameters</h2><pre>{html.escape(config_yaml)}</pre>
 <h2>Results</h2><ul>{result_items}</ul>
 <figure><img src="figures/combined_results.png" alt="Combined results"></figure>
-<h2>Output</h2><pre>{html.escape(output)}</pre><h2>Notes</h2><p>{html.escape(notes)}</p></body></html>
+<h2>Output</h2><pre>{html.escape(output)}</pre><h2>Notes</h2>{markdown(html.escape(notes))}</body></html>
 """
     _write_text(run_dir / "summary.html", document)
     rebuild_index(project_root, runs_dir)

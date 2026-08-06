@@ -251,6 +251,8 @@ Fitting, plotting, and summary generation use saved artifacts; they do not rerun
 | `--no-commit` | Disable commit mode for this invocation, overriding `.labframe.yaml`. The run executes directly from the working tree and requires it to be clean. |
 | `--message TEXT` | Use `TEXT` as the commit message if commit mode needs to commit changed launch source. The default is `labframe run: <config-name>`. |
 | `--yes` | In commit mode, approve capturing dirty source without an interactive confirmation. This is useful in a non-interactive shell. |
+| `--notes TEXT` | Save `TEXT` as the run's Markdown notes without prompting. |
+| `--no-notes-prompt` | Skip the optional notes prompt and save empty notes. This cannot be combined with `--notes`. |
 | `-h`, `--help` | Show the `run` command help. |
 
 Set the project default in `.labframe.yaml`:
@@ -282,9 +284,17 @@ uv run labframe run --project /path/to/my-experiment configs/my-run.yaml
 
 # Choose the source commit message and approve dirty launch source non-interactively.
 uv run labframe run --message "Run calibrated scan" --yes configs/my-run.yaml
+
+# Attach Markdown notes non-interactively.
+uv run labframe run configs/my-run.yaml --notes "Calibration remained stable."
+
+# Never prompt for notes in an automated invocation.
+uv run labframe run configs/smoke.yaml --no-notes-prompt
 ```
 
-Do not edit a completed run directory. In commit mode, Labframe runs from the captured launch source, advances the branch only after success, and records that source commit in the run metadata. If the run fails, it does not commit or advance the branch.
+After the data pipeline succeeds, an interactive terminal prompts for optional Markdown notes. Enter paragraphs, lists, fenced code, or links, then finish with a line containing only `.`. Non-interactive execution never prompts and saves empty notes unless `--notes` supplies content. EOF or an interruption at this optional prompt skips notes without changing the successful run status.
+
+Completed run contents are immutable except for `notes.md`, which is the intentionally editable annotation file. Results, figures, configuration, metadata, and logs must not be changed. In commit mode, Labframe runs from the captured launch source, advances the branch only after success, and records that source commit in the run metadata. If the run fails, it does not commit or advance the branch.
 
 ### Run output
 
@@ -298,6 +308,7 @@ runs/
     ├── figures/
     ├── config.yaml
     ├── meta.json
+    ├── notes.md
     ├── output.log
     ├── summary.md
     └── summary.html
@@ -309,12 +320,26 @@ runs/
 | `figures/` | Plots created from the saved results by `plot_results.py`. |
 | `config.yaml` | Exact configuration used for this run. |
 | `meta.json` | Run status, start time, runtime, and source commit. |
+| `notes.md` | Optional user-authored Markdown. This is the only completed-run file intended for later editing. |
 | `output.log` | Standard output and error captured from the workflow and plotting stages. |
 | `summary.md` | Markdown report built from the saved artifacts. |
 | `summary.html` | Standalone HTML version of the run report. |
 | `index.html` | Standalone run-directory home page linking all run summaries and grouping them by configured run type. It is regenerated after each successful run and is stored beside the run folders. |
 
 Open `index.html` directly in a browser; no local server is required. Runs appear newest first within groups. The generated starter reads the group from `workflow.type`; customized projects may instead use top-level `run_type` or top-level `type`.
+
+### Refresh summaries after editing notes
+
+After editing one or more `notes.md` files, rebuild every completed run's Markdown and HTML summaries plus the configured run directory's `index.html`:
+
+```bash
+uv run labframe-update-index
+
+# Run from elsewhere or select a project explicitly.
+uv run labframe-update-index --project /path/to/my-experiment
+```
+
+The command searches upward for a Labframe project when `--project` is omitted. It reads `.labframe.yaml`, so an absolute external `runs_dir` is refreshed in place and the summary/index links remain relative and directly browsable. It uses only saved configuration, metadata, logs, results, figures, and notes; it never calls workflow, fitting, simulation, experiment, or plotting hooks. Incomplete or malformed run directories are skipped with warnings, and a project with no completed runs still receives the normal empty index. Existing runs without `notes.md` migrate the content of their current `# Notes` summary section instead of restoring the old instructional placeholder.
 
 ## 4. Customize a generated project
 
@@ -330,4 +355,4 @@ The hook contracts are:
 
 - The workflow hook receives the parsed configuration and the run's `results/` path. It writes all numerical output there. Fitting belongs in this stage and consumes saved results.
 - The plotting hook receives the run path, reads `results/`, and writes figures into `figures/`.
-- The summary hook receives the run path and builds reports plus the run-directory index only from saved configuration, metadata, logs, results, and figures.
+- The summary hook receives the run path and builds reports plus the run-directory index only from saved configuration, metadata, logs, results, figures, and `notes.md`.

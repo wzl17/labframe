@@ -40,6 +40,7 @@ Every invocation creates `<runs-dir>/<timestamp>_<config-hash>/`, where `<runs-d
 ```text
 config.yaml
 meta.json
+notes.md
 output.log
 results/
 figures/
@@ -47,12 +48,22 @@ summary.md
 summary.html
 ```
 
-After a successful run, the summary hook also rebuilds `index.html` in the configured run directory, including when that directory is outside the project. Open it directly in a browser to view every run that has a `summary.html`, grouped by the configured run type. Each per-run HTML summary links back to this home page.
+After a successful run, the summary hook also rebuilds `index.html` in the configured run directory, including when that directory is outside the project. Open it directly in a browser to view completed runs grouped by the configured run type. Each per-run HTML summary links back to this home page.
+
+At an interactive terminal, Labframe asks for optional Markdown notes after the workflow and plotting stages succeed. Enter multiline Markdown, then finish with a line containing only `.`. Use `--notes TEXT` to provide notes non-interactively, or `--no-notes-prompt` to explicitly save empty notes. Non-interactive runs never wait for input, and EOF or interruption at the optional prompt does not turn a successful computation into a failed run.
+
+`notes.md` contains only the user-authored Markdown and is rendered into both summaries. It is the one intentionally editable file in a completed run. Results, figures, configuration, metadata, and logs remain immutable.
 
 For normal work, copy or edit a configuration and run it explicitly:
 
 ```bash
 uv run labframe run configs/my-run.yaml
+
+# Supply notes without a prompt.
+uv run labframe run configs/my-run.yaml --notes "Repeat after recalibration."
+
+# Suppress the optional prompt in automation.
+uv run labframe run configs/smoke.yaml --no-notes-prompt
 ```
 
 For a Poetry-managed project, the equivalent command is:
@@ -68,7 +79,16 @@ runs_dir: runs
 commit: false
 ```
 
-New projects use clean, no-commit runs by default. Use `--commit` or `--no-commit` to override this setting for one invocation. Commit mode records the source state used at launch and commits changed launch source only after the run succeeds. Completed run folders are immutable records and should not be edited.
+New projects use clean, no-commit runs by default. Use `--commit` or `--no-commit` to override this setting for one invocation. Commit mode records the source state used at launch and commits changed launch source only after the run succeeds. Completed run folders are immutable records except for later edits to `notes.md`.
+
+After editing notes, refresh all completed summaries and the index without rerunning any computation:
+
+```bash
+uv run labframe-update-index
+uv run labframe-update-index --project /path/to/this-project
+```
+
+The command searches upward when `--project` is omitted and honors the configured `runs_dir`, including an absolute external directory. It rebuilds `summary.md`, `summary.html`, and `<runs-dir>/index.html` only from saved artifacts, skips incomplete or malformed entries with warnings, and also creates the normal empty index when there are no completed runs. For a legacy run without `notes.md`, the existing `# Notes` section in `summary.md` is preserved and migrated.
 
 ## Customize
 
@@ -76,4 +96,4 @@ New projects use clean, no-commit runs by default. Use `--commit` or `--no-commi
 - Configure fit parameter values, bounds, and `vary` explicitly in `workflow.py`; do not use model guesses.
 - Keep reusable model objects in `fit_models.py`.
 - Build plots from `results/` and write them to `figures/`.
-- Build summaries and the run index from saved artifacts only.
+- Build summaries and the run index from saved artifacts and `notes.md` only.

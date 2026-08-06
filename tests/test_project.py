@@ -44,6 +44,14 @@ class ProjectTest(unittest.TestCase):
         self.assertTrue(parser.parse_args(["run", "--commit"]).commit)
         self.assertFalse(parser.parse_args(["run", "--no-commit"]).commit)
 
+    def test_run_parser_accepts_notes_and_rejects_prompt_suppression_with_notes(self) -> None:
+        parser = _build_parser()
+
+        self.assertEqual(parser.parse_args(["run", "--notes", "done"]).notes, "done")
+        self.assertTrue(parser.parse_args(["run", "--no-notes-prompt"]).no_notes_prompt)
+        with self.assertRaises(SystemExit):
+            parser.parse_args(["run", "--notes", "done", "--no-notes-prompt"])
+
     def test_initializer_materializes_editable_rabi_project(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
             project_root = Path(temporary_directory) / "microwave-experiment"
@@ -153,6 +161,23 @@ class ProjectTest(unittest.TestCase):
                 with patch("sys.argv", ["labframe", "run", "--project", str(project_root), "configs/smoke.yaml"]):
                     main()
             self.assertFalse(run.call_args.kwargs["commit"])
+            self.assertIsNone(run.call_args.kwargs["notes"])
+            self.assertTrue(run.call_args.kwargs["prompt_for_notes"])
+
+            with patch("labframe.cli.run_project", return_value=run_dir) as run:
+                with patch(
+                    "sys.argv",
+                    [
+                        "labframe",
+                        "run",
+                        "--project",
+                        str(project_root),
+                        "--no-notes-prompt",
+                        "configs/smoke.yaml",
+                    ],
+                ):
+                    main()
+            self.assertFalse(run.call_args.kwargs["prompt_for_notes"])
 
             with patch("labframe.cli.run_project", return_value=run_dir) as run:
                 with patch(

@@ -6,12 +6,13 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 import numpy as np
 from lmfit import Model
 
 from labframe.project import initialize_project
-from labframe.runner import run_project
+from labframe.runner import _collect_notes, _run_summary, run_project
 
 
 def _git(project_root: Path, *arguments: str) -> None:
@@ -68,6 +69,10 @@ class RunnerTest(unittest.TestCase):
                 commit=False,
                 message=None,
                 yes=False,
+                notes=(
+                    "A **useful** result.\n\n- repeat scan\n- [open docs](https://example.com)"
+                    "\n\n<script>alert('unsafe')</script>"
+                ),
             )
 
             meta = json.loads((run_dir / "meta.json").read_text(encoding="utf-8"))
@@ -80,6 +85,11 @@ class RunnerTest(unittest.TestCase):
             self.assertTrue((run_dir / "figures" / "combined_results.png").is_file())
             self.assertTrue((run_dir / "summary.md").is_file())
             self.assertTrue((run_dir / "summary.html").is_file())
+            self.assertEqual(
+                (run_dir / "notes.md").read_text(encoding="utf-8"),
+                "A **useful** result.\n\n- repeat scan\n- [open docs](https://example.com)"
+                "\n\n<script>alert('unsafe')</script>",
+            )
             self.assertTrue((project_root / "runs" / "index.html").is_file())
             self.assertFalse((project_root / "index.html").exists())
 
@@ -110,8 +120,14 @@ class RunnerTest(unittest.TestCase):
             summary = (run_dir / "summary.md").read_text(encoding="utf-8")
             self.assertIn("results/rabi_flop.npz", summary)
             self.assertIn("results/rabi_flop_fit.npz", summary)
+            self.assertIn("# Notes\n\nA **useful** result.\n\n- repeat scan", summary)
             summary_html = (run_dir / "summary.html").read_text(encoding="utf-8")
             self.assertIn('href="../index.html"', summary_html)
+            self.assertIn("<strong>useful</strong>", summary_html)
+            self.assertIn("<li>repeat scan</li>", summary_html)
+            self.assertIn('<a href="https://example.com">open docs</a>', summary_html)
+            self.assertNotIn("<script>", summary_html)
+            self.assertIn("&lt;script&gt;alert", summary_html)
             index_html = (project_root / "runs" / "index.html").read_text(encoding="utf-8")
             self.assertIn('data-run-type="rabi_flop"', index_html)
             self.assertIn(f'href="{run_dir.name}/summary.html"', index_html)
@@ -271,6 +287,112 @@ class RunnerTest(unittest.TestCase):
                     message=None,
                     yes=False,
                 )
+
+    def test_interactive_notes_preserve_multiline_markdown(self) -> None:
+        class InteractiveInput:
+            @staticmethod
+            def isatty() -> bool:
+                return True
+
+        with (
+            patch("labframe.runner.sys.stdin", InteractiveInput()),
+            patch("builtins.input", side_effect=["First paragraph", "", "```python", "x = 1", "```", "."]),
+        ):
+            notes = _collect_notes(None, prompt=True)
+
+        self.assertEqual(notes, "First paragraph\n\n```python\nx = 1\n```")
+
+    def test_noninteractive_and_suppressed_notes_never_read_input(self) -> None:
+        with patch("builtins.input") as read:
+            self.assertEqual(_collect_notes(None, prompt=True), "")
+            self.assertEqual(_collect_notes(None, prompt=False), "")
+        read.assert_not_called()
+
+    def test_eof_and_interruption_skip_optional_notes(self) -> None:
+        class InteractiveInput:
+            @staticmethod
+            def isatty() -> bool:
+                return True
+
+        for error in (EOFError(), KeyboardInterrupt()):
+            with self.subTest(error=type(error).__name__):
+                with (
+                    patch("labframe.runner.sys.stdin", InteractiveInput()),
+                    patch("builtins.input", side_effect=error),
+                ):
+                    self.assertEqual(_collect_notes(None, prompt=True), "")
+
+    def test_interrupted_notes_prompt_does_not_fail_a_successful_pipeline(self) -> None:
+        class InteractiveInput:
+            @staticmethod
+            def isatty() -> bool:
+                return True
+
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            project_root = self._project(Path(temporary_directory))
+            with (
+                patch("labframe.runner.sys.stdin", InteractiveInput()),
+                patch("builtins.input", side_effect=KeyboardInterrupt()),
+                patch("labframe.runner._run_data_pipeline"),
+                patch("labframe.runner._run_summary"),
+            ):
+                run_dir = run_project(
+                    project_root,
+                    Path("configs/smoke.yaml"),
+                    commit=False,
+                    message=None,
+                    yes=False,
+                )
+
+            meta = json.loads((run_dir / "meta.json").read_text(encoding="utf-8"))
+            self.assertEqual(meta["status"], "completed")
+            self.assertEqual((run_dir / "notes.md").read_text(encoding="utf-8"), "")
+
+    def test_commit_mode_collects_notes_once_and_preserves_them_across_summaries(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            project_root = self._project(Path(temporary_directory))
+            workflow_path = project_root / "workflow.py"
+            workflow_path.write_text(workflow_path.read_text(encoding="utf-8") + "\n# launch change\n", encoding="utf-8")
+
+            with (
+                patch("labframe.runner._collect_notes", return_value="Commit-mode **note**") as collect,
+                patch("labframe.runner._run_summary", wraps=_run_summary) as summarize,
+            ):
+                run_dir = run_project(
+                    project_root,
+                    Path("configs/smoke.yaml"),
+                    commit=True,
+                    message="Test notes",
+                    yes=True,
+                )
+
+            collect.assert_called_once_with(None, prompt=True)
+            self.assertEqual(summarize.call_count, 2)
+            self.assertEqual((run_dir / "notes.md").read_text(encoding="utf-8"), "Commit-mode **note**")
+            self.assertIn("Commit-mode **note**", (run_dir / "summary.md").read_text(encoding="utf-8"))
+
+    def test_legacy_summary_notes_are_migrated_when_notes_file_is_missing(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            project_root = Path(temporary_directory) / "legacy-notes"
+            initialize_project(project_root, sync=False, initialize_git=False)
+            run_dir = project_root / "runs" / "20260806-100000_aaaaaaaa"
+            (run_dir / "results").mkdir(parents=True)
+            (run_dir / "figures").mkdir()
+            (run_dir / "config.yaml").write_text("workflow:\n  type: legacy\n", encoding="utf-8")
+            (run_dir / "meta.json").write_text(
+                json.dumps({"status": "completed", "runtime_seconds": 1.0, "project_root": str(project_root)}),
+                encoding="utf-8",
+            )
+            (run_dir / "output.log").write_text("saved output\n", encoding="utf-8")
+            legacy_notes = "Legacy paragraph.\n\n- preserve this\n"
+            (run_dir / "summary.md").write_text(f"# Old summary\n\n# Notes\n\n{legacy_notes}", encoding="utf-8")
+
+            summary_module = _load_module("generated_legacy_summary", project_root / "build_summary.py")
+            summary_module.build_summary(run_dir)
+
+            self.assertEqual((run_dir / "notes.md").read_text(encoding="utf-8"), legacy_notes)
+            self.assertIn(legacy_notes, (run_dir / "summary.md").read_text(encoding="utf-8"))
+            self.assertIn("<li>preserve this</li>", (run_dir / "summary.html").read_text(encoding="utf-8"))
 
 
 if __name__ == "__main__":
