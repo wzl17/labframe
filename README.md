@@ -76,21 +76,24 @@ uv add --editable /path/to/labframe
 poetry add --editable /path/to/labframe
 ```
 
-With an editable dependency, changes to `labframe/defaults.py` take effect the
-next time the shortcut runs; no reinstallation is needed. If Labframe was
-installed as the non-editable path dependency shown above, rebuild it after
-changing those defaults:
+With an editable dependency, changes to the behavior in
+`labframe/defaults.py` take effect the next time the shortcut runs; no
+reinstallation is needed. If Labframe was installed as the non-editable path
+dependency shown above, rebuild it after changing that behavior:
 
 ```bash
 # uv
 uv sync --reinstall-package labframe
 
 # Poetry
-poetry run python -m pip install --force-reinstall --no-deps /path/to/labframe
+poetry remove labframe
+poetry add /path/to/labframe
 ```
 
-If you change a `[project.scripts]` declaration itself, also run `uv sync` or
-`poetry install` to regenerate the executable.
+If you add, remove, or rename a Labframe `[project.scripts]` entry, refresh the
+installed package with the same commands so its executable is created or
+removed. For Poetry, use `poetry add --editable /path/to/labframe` in the
+second command if the dependency was editable before the refresh.
 
 As with `labframe init --no-git`, the containing project must already be a Git
 repository with an existing commit before the generated project can run.
