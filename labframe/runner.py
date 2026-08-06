@@ -115,9 +115,9 @@ def _load_hook(project_root: Path, hook_name: str):
 def _run_data_pipeline(source_root: Path, run_dir: Path) -> None:
     config = _load_config(run_dir / "config.yaml")
     with _project_on_path(source_root):
-        simulation = _load_hook(source_root, "simulation")
+        workflow = _load_hook(source_root, "workflow")
         plot = _load_hook(source_root, "plot")
-        simulation(config, run_dir / "results")
+        workflow(config, run_dir / "results")
         plot(run_dir)
 
 

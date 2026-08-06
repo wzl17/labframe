@@ -9,7 +9,7 @@ from pathlib import Path
 import yaml
 
 PROJECT_HOOKS = {
-    "simulation": ("simulation.py", "run_simulation"),
+    "workflow": ("workflow.py", "run_workflow"),
     "plot": ("plot_results.py", "plot_results"),
     "summary": ("build_summary.py", "build_summary"),
 }

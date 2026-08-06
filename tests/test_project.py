@@ -51,7 +51,7 @@ class ProjectTest(unittest.TestCase):
 
             expected = {
                 ".labframe.yaml",
-                "simulation.py",
+                "workflow.py",
                 "fit_models.py",
                 "plot_results.py",
                 "build_summary.py",

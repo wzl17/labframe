@@ -73,9 +73,9 @@ class RunnerTest(unittest.TestCase):
             meta = json.loads((run_dir / "meta.json").read_text(encoding="utf-8"))
             self.assertEqual(meta["status"], "completed")
             self.assertEqual(meta["git_commit"], starting_commit)
-            simulation_path = run_dir / "results" / "rabi_flop.npz"
+            data_path = run_dir / "results" / "rabi_flop.npz"
             fit_path = run_dir / "results" / "rabi_flop_fit.npz"
-            self.assertTrue(simulation_path.is_file())
+            self.assertTrue(data_path.is_file())
             self.assertTrue(fit_path.is_file())
             self.assertTrue((run_dir / "figures" / "combined_results.png").is_file())
             self.assertTrue((run_dir / "summary.md").is_file())
@@ -84,15 +84,15 @@ class RunnerTest(unittest.TestCase):
             self.assertFalse((project_root / "index.html").exists())
 
             with (
-                np.load(simulation_path, allow_pickle=False) as simulation,
+                np.load(data_path, allow_pickle=False) as data,
                 np.load(fit_path, allow_pickle=False) as fitted,
             ):
-                self.assertEqual(simulation.files, ["time_s", "excited_state_probability"])
-                self.assertEqual(fitted.files, simulation.files)
-                self.assertGreater(fitted["time_s"].size, simulation["time_s"].size)
-                self.assertEqual(float(fitted["time_s"][0]), float(simulation["time_s"][0]))
-                self.assertEqual(float(fitted["time_s"][-1]), float(simulation["time_s"][-1]))
-                probability = simulation["excited_state_probability"]
+                self.assertEqual(data.files, ["time_s", "excited_state_probability"])
+                self.assertEqual(fitted.files, data.files)
+                self.assertGreater(fitted["time_s"].size, data["time_s"].size)
+                self.assertEqual(float(fitted["time_s"][0]), float(data["time_s"][0]))
+                self.assertEqual(float(fitted["time_s"][-1]), float(data["time_s"][-1]))
+                probability = data["excited_state_probability"]
                 fitted_probability = fitted["excited_state_probability"]
             self.assertGreater(fitted_probability.size, probability.size)
 
@@ -106,7 +106,7 @@ class RunnerTest(unittest.TestCase):
             ):
                 self.assertTrue(hasattr(fit_models, name))
                 self.assertIsInstance(getattr(fit_models, name), Model)
-            self.assertNotIn(".guess(", (project_root / "simulation.py").read_text(encoding="utf-8"))
+            self.assertNotIn(".guess(", (project_root / "workflow.py").read_text(encoding="utf-8"))
             summary = (run_dir / "summary.md").read_text(encoding="utf-8")
             self.assertIn("results/rabi_flop.npz", summary)
             self.assertIn("results/rabi_flop_fit.npz", summary)
@@ -170,8 +170,8 @@ class RunnerTest(unittest.TestCase):
             project_root = Path(temporary_directory) / "grouped-runs"
             initialize_project(project_root, sync=False, initialize_git=False)
             summary_module = _load_module("generated_grouped_summary", project_root / "build_summary.py")
-            self.assertEqual(summary_module._run_type({"simulation": {"type": "rabi_flop"}}), "rabi_flop")
-            self.assertEqual(summary_module._run_type({"experiment": {"type": "ramsey"}}), "ramsey")
+            self.assertEqual(summary_module._run_type({"workflow": {"type": "rabi_flop"}}), "rabi_flop")
+            self.assertEqual(summary_module._run_type({"workflow": {"type": "ramsey"}}), "ramsey")
             self.assertEqual(summary_module._run_type({"acquisition": {"type": "scan"}}), "unknown")
 
             runs = (
@@ -183,7 +183,7 @@ class RunnerTest(unittest.TestCase):
                 run_dir = project_root / "runs" / name
                 run_dir.mkdir()
                 (run_dir / "config.yaml").write_text(
-                    f"simulation:\n  type: {run_type}\n",
+                    f"workflow:\n  type: {run_type}\n",
                     encoding="utf-8",
                 )
                 (run_dir / "meta.json").write_text(
@@ -201,7 +201,7 @@ class RunnerTest(unittest.TestCase):
             incomplete_run = project_root / "runs" / "20260806-130000_dddddddd"
             incomplete_run.mkdir()
             (incomplete_run / "config.yaml").write_text(
-                "simulation:\n  type: ignored\n",
+                "workflow:\n  type: ignored\n",
                 encoding="utf-8",
             )
 
@@ -259,8 +259,8 @@ class RunnerTest(unittest.TestCase):
     def test_no_commit_run_rejects_dirty_project(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
             project_root = self._project(Path(temporary_directory))
-            (project_root / "simulation.py").write_text(
-                (project_root / "simulation.py").read_text(encoding="utf-8") + "\n# dirty\n",
+            (project_root / "workflow.py").write_text(
+                (project_root / "workflow.py").read_text(encoding="utf-8") + "\n# dirty\n",
                 encoding="utf-8",
             )
             with self.assertRaisesRegex(RuntimeError, "working tree is dirty"):

@@ -6,9 +6,9 @@
 - Start generated-project workflows through `labframe run`.
 - `labframe run` without a configuration uses `configs/default.yaml`; never execute it automatically.
 - Do not perform broad refactoring unless explicitly requested.
-- The generated simulation or acquisition hook must read a configuration and write into the supplied `results/` directory.
+- The generated workflow hook must read a configuration and write into the supplied `results/` directory.
 - Generated `fit_models.py` contains only reusable model objects imported from `lmfit.models`.
-- Generated fitting examples are called by their simulation functions in `simulation.py` and configure parameter values, bounds, and `vary` explicitly without calling model guesses.
+- Generated fitting examples are called by their workflow functions in `workflow.py` and configure parameter values, bounds, and `vary` explicitly without calling model guesses.
 - Plotting must read from `results/` and write into `figures/`.
 - Keep Matplotlib presentation settings in the single generated `plot_results.py` file.
 - Summary generation must use saved results and figures.

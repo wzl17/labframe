@@ -114,7 +114,7 @@ By default, `labframe init /path/to/my-experiment`:
 - creates `/path/to/my-experiment`; it stops if that directory already contains files;
 - derives the project name from the directory name, normalizes it, and writes it into the generated files;
 - writes `.labframe.yaml` with the directory used to store run artifacts and the default Git commit mode;
-- copies the complete starter project, including configurations and working simulation, fitting, plotting, and summary hooks;
+- copies the complete starter project, including configurations and working workflow, fitting, plotting, and summary hooks;
 - writes a standalone `pyproject.toml` and connects it to the editable Labframe source checkout when Labframe is run from that checkout;
 - runs `uv sync`, which creates the project environment, resolves its dependencies, and writes `uv.lock`;
 - runs `git init`, stages the generated files, and creates the initial commit named `Initialize Labframe project`.
@@ -186,7 +186,7 @@ my-experiment/
 ├── build_summary.py
 ├── fit_models.py
 ├── plot_results.py
-├── simulation.py
+├── workflow.py
 ├── .gitignore
 ├── pyproject.toml
 ├── uv.lock
@@ -202,8 +202,8 @@ my-experiment/
 | `configs/smoke.yaml` | Small, fast configuration for validating the complete workflow. |
 | `runs/` | Default location containing one immutable artifact directory per run. It is absent when `--runs-dir` selects another location. Generated contents are ignored by Git. |
 | `runs/.gitkeep` | Keeps the initially empty `runs/` directory in Git. |
-| `simulation.py` | Reads the selected configuration, runs the simulation or acquisition, writes numerical data to `results/`, and performs fitting examples. |
-| `fit_models.py` | Defines reusable lmfit model objects imported by `simulation.py`. Parameter values, bounds, and `vary` settings stay in `simulation.py`. |
+| `workflow.py` | Reads the selected configuration, runs the configured workflow, writes numerical data to `results/`, and performs fitting examples. |
+| `fit_models.py` | Defines reusable lmfit model objects imported by `workflow.py`. Parameter values, bounds, and `vary` settings stay in `workflow.py`. |
 | `plot_results.py` | Reads saved data from `results/` and writes Matplotlib figures to `figures/`. It is the single place for Matplotlib presentation settings. |
 | `build_summary.py` | Builds per-run `summary.md` and `summary.html` files and the run-directory index from saved configuration, metadata, logs, results, and figures. |
 | `.gitignore` | Excludes the project environment, Python build files, and generated run contents from Git. |
@@ -236,7 +236,7 @@ The two run commands have the same Labframe arguments. In the examples below, re
 This uses `configs/default.yaml` and the `commit` setting in `.labframe.yaml` (new projects use `true`). Labframe finds the project root, captures the source state at launch when commit mode is enabled, and runs the following pipeline:
 
 ```text
-configuration -> simulation or acquisition and fitting -> saved results -> figures -> summaries
+configuration -> workflow and fitting -> saved results -> figures -> summaries
 ```
 
 Fitting, plotting, and summary generation use saved artifacts; they do not rerun the simulation or experiment.
@@ -246,7 +246,7 @@ Fitting, plotting, and summary generation use saved artifacts; they do not rerun
 | Argument or option | Meaning |
 |---|---|
 | `config` | Optional configuration path relative to the project root. The default is `configs/default.yaml`. The file must be inside the project. |
-| `--project PATH` | Use `PATH` as the project root. Without it, Labframe searches upward for the conventional simulation, plotting, and summary hook files. |
+| `--project PATH` | Use `PATH` as the project root. Without it, Labframe searches upward for the conventional workflow, plotting, and summary hook files. |
 | `--commit` | Enable commit mode for this invocation, overriding `.labframe.yaml`. The run uses the source state captured at launch and commits changed launch source only after a successful run. |
 | `--no-commit` | Disable commit mode for this invocation, overriding `.labframe.yaml`. The run executes directly from the working tree and requires it to be clean. |
 | `--message TEXT` | Use `TEXT` as the commit message if commit mode needs to commit changed launch source. The default is `labframe run: <config-name>`. |
@@ -305,16 +305,16 @@ runs/
 
 | File or directory | Purpose |
 |---|---|
-| `results/` | Numerical simulation, acquisition, and fitting results written by `simulation.py`. |
+| `results/` | Numerical workflow and fitting results written by `workflow.py`. |
 | `figures/` | Plots created from the saved results by `plot_results.py`. |
 | `config.yaml` | Exact configuration used for this run. |
 | `meta.json` | Run status, start time, runtime, and source commit. |
-| `output.log` | Standard output and error captured from the simulation and plotting stages. |
+| `output.log` | Standard output and error captured from the workflow and plotting stages. |
 | `summary.md` | Markdown report built from the saved artifacts. |
 | `summary.html` | Standalone HTML version of the run report. |
 | `index.html` | Standalone run-directory home page linking all run summaries and grouping them by configured run type. It is regenerated after each successful run and is stored beside the run folders. |
 
-Open `index.html` directly in a browser; no local server is required. Runs appear newest first within groups. The generated starter reads the group from `simulation.type`; customized projects may instead use `experiment.type`, top-level `run_type`, or top-level `type`.
+Open `index.html` directly in a browser; no local server is required. Runs appear newest first within groups. The generated starter reads the group from `workflow.type`; customized projects may instead use top-level `run_type` or top-level `type`.
 
 ## 4. Customize a generated project
 
@@ -322,12 +322,12 @@ Labframe uses three conventional hook locations:
 
 | Stage | Hook |
 |---|---|
-| Simulation, acquisition, and fitting | `simulation.py:run_simulation` |
+| Workflow and fitting | `workflow.py:run_workflow` |
 | Plotting | `plot_results.py:plot_results` |
 | Summary generation | `build_summary.py:build_summary` |
 
 The hook contracts are:
 
-- The simulation or acquisition hook receives the parsed configuration and the run's `results/` path. It writes all numerical output there. Fitting belongs in this stage and consumes saved results.
+- The workflow hook receives the parsed configuration and the run's `results/` path. It writes all numerical output there. Fitting belongs in this stage and consumes saved results.
 - The plotting hook receives the run path, reads `results/`, and writes figures into `figures/`.
 - The summary hook receives the run path and builds reports plus the run-directory index only from saved configuration, metadata, logs, results, and figures.

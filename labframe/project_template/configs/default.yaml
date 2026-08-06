@@ -1,4 +1,4 @@
-simulation:
+workflow:
   type: rabi_flop
   duration_s: 200.0e-6
   points: 1001

@@ -1,4 +1,4 @@
-"""Example simulations selected by the configuration."""
+"""Example workflows selected by the configuration."""
 
 from pathlib import Path
 
@@ -7,23 +7,23 @@ from fit_models import sine_offset_model
 from qutip import basis, mesolve, sigmax, sigmaz
 
 
-def run_simulation(config: dict, results_dir: Path) -> None:
-    """Select and run the simulation named by ``simulation.type``."""
-    simulation = config["simulation"]
-    simulation_type = simulation["type"]
+def run_workflow(config: dict, results_dir: Path) -> None:
+    """Select and run the workflow named by ``workflow.type``."""
+    workflow = config["workflow"]
+    workflow_type = workflow["type"]
 
-    if simulation_type == "rabi_flop":
-        rabi_flop(simulation, results_dir)
+    if workflow_type == "rabi_flop":
+        rabi_flop(workflow, results_dir)
     else:
-        raise ValueError(f"Unknown simulation type: {simulation_type!r}")
+        raise ValueError(f"Unknown workflow type: {workflow_type!r}")
 
 
-def rabi_flop(simulation: dict, results_dir: Path) -> None:
+def rabi_flop(workflow: dict, results_dir: Path) -> None:
     """Simulate a coherently driven two-level system and save the result."""
-    duration_s = float(simulation["duration_s"])
-    points = int(simulation["points"])
-    rabi_frequency_hz = float(simulation["rabi_frequency_Hz"])
-    detuning_hz = float(simulation.get("detuning_Hz", 0.0))
+    duration_s = float(workflow["duration_s"])
+    points = int(workflow["points"])
+    rabi_frequency_hz = float(workflow["rabi_frequency_Hz"])
+    detuning_hz = float(workflow.get("detuning_Hz", 0.0))
 
     angular_rabi_frequency = 2.0 * np.pi * rabi_frequency_hz
     angular_detuning = 2.0 * np.pi * detuning_hz
