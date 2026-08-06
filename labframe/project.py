@@ -202,7 +202,7 @@ def initialize_project(
         include_default_runs=resolved_runs_dir == target / "runs",
     )
     (target / PROJECT_SETTINGS).write_text(
-        yaml.safe_dump({"runs_dir": stored_runs_dir, "commit": True}, sort_keys=False),
+        yaml.safe_dump({"runs_dir": stored_runs_dir, "commit": False}, sort_keys=False),
         encoding="utf-8",
     )
     resolved_runs_dir.mkdir(parents=True, exist_ok=True)

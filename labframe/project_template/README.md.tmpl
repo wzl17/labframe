@@ -7,16 +7,16 @@ This project was created by Labframe. The starter is a complete Rabi-flop exampl
 From this directory:
 
 ```bash
-uv run labframe run --no-commit configs/smoke.yaml
+uv run labframe run configs/smoke.yaml
 ```
 
 If this project is managed by Poetry and Labframe was added from its local checkout with `poetry add /path/to/labframe`, use:
 
 ```bash
-poetry run labframe run --no-commit configs/smoke.yaml
+poetry run labframe run configs/smoke.yaml
 ```
 
-The smoke configuration is intentionally small and `--no-commit` requires a clean working tree. Always pass `configs/smoke.yaml` explicitly during automated validation; omitting the configuration selects `configs/default.yaml`.
+The smoke configuration is intentionally small. New projects use no-commit mode by default, which requires a clean working tree. Always pass `configs/smoke.yaml` explicitly during automated validation; omitting the configuration selects `configs/default.yaml`.
 
 ## Project files
 
@@ -65,10 +65,10 @@ poetry run labframe run configs/my-run.yaml
 
 ```yaml
 runs_dir: runs
-commit: true
+commit: false
 ```
 
-Set `commit: false` to make clean, no-commit runs the project default. Use `--commit` or `--no-commit` to override it for one invocation. Commit mode records the source state used at launch and commits changed launch source only after the run succeeds. Completed run folders are immutable records and should not be edited.
+New projects use clean, no-commit runs by default. Use `--commit` or `--no-commit` to override this setting for one invocation. Commit mode records the source state used at launch and commits changed launch source only after the run succeeds. Completed run folders are immutable records and should not be edited.
 
 ## Customize
 

@@ -71,7 +71,7 @@ class ProjectTest(unittest.TestCase):
             self.assertNotIn("{{PROJECT_NAME}}", readme)
             self.assertEqual(find_project_root(project_root / "configs"), project_root.resolve())
             self.assertEqual(project_runs_dir(project_root), (project_root / "runs").resolve())
-            self.assertTrue(project_commit_default(project_root))
+            self.assertFalse(project_commit_default(project_root))
 
     def test_initializer_configures_an_external_runs_directory(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
@@ -88,7 +88,7 @@ class ProjectTest(unittest.TestCase):
 
             self.assertEqual(
                 (project_root / ".labframe.yaml").read_text(encoding="utf-8"),
-                "runs_dir: ../run-artifacts\ncommit: true\n",
+                "runs_dir: ../run-artifacts\ncommit: false\n",
             )
             self.assertEqual(project_runs_dir(project_root), runs_dir.resolve())
             self.assertTrue(runs_dir.is_dir())

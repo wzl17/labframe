@@ -197,7 +197,7 @@ my-experiment/
 |---|---|
 | `.git/` | Independent Git repository created by `labframe init`. With `--no-git`, it is absent and a containing repository must provide source history instead. |
 | `.venv/` | Project-specific Python environment created by `uv sync`. It is absent with `--no-venv`, which uses the containing project's environment, and initially absent with `--no-sync`. |
-| `.labframe.yaml` | Project settings: `runs_dir` is the run-artifact directory selected by `labframe init --runs-dir`, and `commit` is the default Git commit mode for `labframe run`. New projects use `commit: true`. |
+| `.labframe.yaml` | Project settings: `runs_dir` is the run-artifact directory selected by `labframe init --runs-dir`, and `commit` is the default Git commit mode for `labframe run`. New projects use `commit: false`. |
 | `configs/default.yaml` | Normal project configuration. `labframe run` selects this file when no configuration is given. |
 | `configs/smoke.yaml` | Small, fast configuration for validating the complete workflow. |
 | `runs/` | Default location containing one immutable artifact directory per run. It is absent when `--runs-dir` selects another location. Generated contents are ignored by Git. |
@@ -233,7 +233,7 @@ poetry run labframe run
 
 The two run commands have the same Labframe arguments. In the examples below, replace `uv run` with `poetry run` when the project environment is managed by Poetry.
 
-This uses `configs/default.yaml` and the `commit` setting in `.labframe.yaml` (new projects use `true`). Labframe finds the project root, captures the source state at launch when commit mode is enabled, and runs the following pipeline:
+This uses `configs/default.yaml` and the `commit` setting in `.labframe.yaml` (new projects use `false`). Labframe finds the project root, captures the source state at launch when commit mode is enabled, and runs the following pipeline:
 
 ```text
 configuration -> workflow and fitting -> saved results -> figures -> summaries
@@ -257,7 +257,7 @@ Set the project default in `.labframe.yaml`:
 
 ```yaml
 runs_dir: runs
-commit: true
+commit: false
 ```
 
 `--commit` and `--no-commit` override this setting for one invocation. `--message` and `--yes` require the resulting mode to be commit mode; use `--commit` if the project default is `false`.
