@@ -43,6 +43,58 @@ poetry run labframe --version
 
 Replace `/path/to/labframe` with the clone created above. If the Poetry project is an existing generated Labframe project, its `pyproject.toml` already declares the starter's scientific dependencies. A different containing Poetry project must declare whichever dependencies its simulation or experiment imports.
 
+### Containing-project shortcut
+
+When Labframe is added to an existing uv or Poetry project, it also provides
+`labframe-new-project`. This is an example shortcut for a common nested-project
+setup: it initializes without a new virtual environment or Git repository and
+stores run artifacts under `~/data/labframe`. Any arguments after the command
+are passed to `labframe init`.
+
+```bash
+# From an existing uv project
+uv add /path/to/labframe
+uv run labframe-new-project my-simulation
+
+# From an existing Poetry project
+poetry add /path/to/labframe
+poetry run labframe-new-project my-simulation
+```
+
+If those defaults do not suit your workspace, configure the shortcut by copying
+and adapting `new_project` in [`labframe/defaults.py`](labframe/defaults.py),
+then registering the adapted function in your project's `[project.scripts]`
+table. Labframe registers its bundled example in its own
+[`pyproject.toml`](pyproject.toml).
+
+For a local Labframe checkout that you plan to customize, prefer an editable
+dependency:
+
+```bash
+uv add --editable /path/to/labframe
+# or
+poetry add --editable /path/to/labframe
+```
+
+With an editable dependency, changes to `labframe/defaults.py` take effect the
+next time the shortcut runs; no reinstallation is needed. If Labframe was
+installed as the non-editable path dependency shown above, rebuild it after
+changing those defaults:
+
+```bash
+# uv
+uv sync --reinstall-package labframe
+
+# Poetry
+poetry run python -m pip install --force-reinstall --no-deps /path/to/labframe
+```
+
+If you change a `[project.scripts]` declaration itself, also run `uv sync` or
+`poetry install` to regenerate the executable.
+
+As with `labframe init --no-git`, the containing project must already be a Git
+repository with an existing commit before the generated project can run.
+
 ## 2. Create a project
 
 With the uv tool installation, create a new, independent project anywhere on your filesystem:

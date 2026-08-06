@@ -4,10 +4,34 @@ from pathlib import Path
 from unittest.mock import patch
 
 from labframe.cli import _build_parser, main
+from labframe.defaults import new_project
 from labframe.project import find_project_root, initialize_project, project_commit_default, project_runs_dir
 
 
 class ProjectTest(unittest.TestCase):
+    def test_new_project_command_uses_containing_environment_defaults(self) -> None:
+        with (
+            patch("labframe.defaults.subprocess.call", return_value=23) as call,
+            patch("sys.argv", ["labframe-new-project", "my-simulation", "--name", "Rabi scan"]),
+        ):
+            with self.assertRaisesRegex(SystemExit, "23"):
+                new_project()
+
+        self.assertEqual(
+            call.call_args.args[0],
+            [
+                "labframe",
+                "init",
+                "--no-venv",
+                "--no-git",
+                "--runs-dir",
+                str(Path.home() / "data" / "labframe"),
+                "my-simulation",
+                "--name",
+                "Rabi scan",
+            ],
+        )
+
     def test_init_parser_accepts_runs_directory(self) -> None:
         args = _build_parser().parse_args(["init", "example", "--runs-dir", "../run-artifacts"])
 
