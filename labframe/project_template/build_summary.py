@@ -55,7 +55,7 @@ def _relative_href(path: Path, start: Path) -> str:
 
 
 def rebuild_index(project_root: Path, runs_dir: Path | None = None) -> Path:
-    """Create the project home page from completed per-run HTML summaries."""
+    """Create the run-directory home page from completed per-run HTML summaries."""
     project_root = project_root.resolve()
     runs_dir = runs_dir.resolve() if runs_dir is not None else project_root / "runs"
     grouped_entries: dict[str, list[dict]] = {}
@@ -70,7 +70,7 @@ def rebuild_index(project_root: Path, runs_dir: Path | None = None) -> Path:
             grouped_entries.setdefault(run_type, []).append(
                 {
                     "name": run_dir.name,
-                    "href": _relative_href(summary_path, project_root),
+                    "href": _relative_href(summary_path, runs_dir),
                     "started_at": meta.get("started_at"),
                     "runtime_seconds": meta.get("runtime_seconds"),
                     "status": meta.get("status", "unknown"),
@@ -117,7 +117,7 @@ main{{width:min(64rem,calc(100% - 2rem));margin:0 auto;padding:3rem 0 5rem}}h1{{
 </style></head><body><main><h1>{project_name} runs</h1>
 <p class="lede">Static summaries grouped by run type.</p>{groups}</main></body></html>
 """
-    index_path = project_root / "index.html"
+    index_path = runs_dir / "index.html"
     _write_text(index_path, document)
     return index_path
 
@@ -177,7 +177,7 @@ Runtime: `{meta.get("runtime_seconds", "unknown")} s`
     _write_text(summary_path, summary)
 
     result_items = "".join(f"<li><code>results/{html.escape(name)}</code></li>" for name in result_files)
-    index_href = html.escape(_relative_href(project_root / "index.html", run_dir), quote=True)
+    index_href = html.escape(_relative_href(runs_dir / "index.html", run_dir), quote=True)
     document = f"""<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width">
 <title>{html.escape(run_dir.name)} · Labframe</title>

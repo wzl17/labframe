@@ -23,8 +23,7 @@ The smoke configuration is intentionally small and `--no-commit` requires a clea
 ```text
 configs/           YAML run configurations
 .labframe.yaml     Run-artifact directory and default Git commit settings
-runs/              Default run-artifact directory (ignored by Git)
-index.html         Generated run home page (created after the first run and ignored by Git)
+runs/              Default run-artifact directory, including index.html (ignored by Git)
 simulation.py      Simulation dispatch, saved results, and fitting examples
 fit_models.py      Reusable lmfit model objects
 plot_results.py    Figures built from saved results
@@ -48,7 +47,7 @@ summary.md
 summary.html
 ```
 
-After a successful run, the summary hook also rebuilds `index.html` in the project root, including when the configured run directory is outside the project. Open it directly in a browser to view every run that has a `summary.html`, grouped by the configured run type. Each per-run HTML summary links back to this home page.
+After a successful run, the summary hook also rebuilds `index.html` in the configured run directory, including when that directory is outside the project. Open it directly in a browser to view every run that has a `summary.html`, grouped by the configured run type. Each per-run HTML summary links back to this home page.
 
 For normal work, copy or edit a configuration and run it explicitly:
 

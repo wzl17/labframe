@@ -80,7 +80,8 @@ class RunnerTest(unittest.TestCase):
             self.assertTrue((run_dir / "figures" / "combined_results.png").is_file())
             self.assertTrue((run_dir / "summary.md").is_file())
             self.assertTrue((run_dir / "summary.html").is_file())
-            self.assertTrue((project_root / "index.html").is_file())
+            self.assertTrue((project_root / "runs" / "index.html").is_file())
+            self.assertFalse((project_root / "index.html").exists())
 
             with (
                 np.load(simulation_path, allow_pickle=False) as simulation,
@@ -110,10 +111,10 @@ class RunnerTest(unittest.TestCase):
             self.assertIn("results/rabi_flop.npz", summary)
             self.assertIn("results/rabi_flop_fit.npz", summary)
             summary_html = (run_dir / "summary.html").read_text(encoding="utf-8")
-            self.assertIn('href="../../index.html"', summary_html)
-            index_html = (project_root / "index.html").read_text(encoding="utf-8")
+            self.assertIn('href="../index.html"', summary_html)
+            index_html = (project_root / "runs" / "index.html").read_text(encoding="utf-8")
             self.assertIn('data-run-type="rabi_flop"', index_html)
-            self.assertIn(f'href="runs/{run_dir.name}/summary.html"', index_html)
+            self.assertIn(f'href="{run_dir.name}/summary.html"', index_html)
             self.assertIn('<span class="run-count">1 run</span>', index_html)
             self.assertEqual(
                 subprocess.run(
@@ -157,11 +158,11 @@ class RunnerTest(unittest.TestCase):
             self.assertEqual(meta["runs_dir"], str(external_runs_dir.resolve()))
 
             summary_html = (run_dir / "summary.html").read_text(encoding="utf-8")
-            index_href = Path(os.path.relpath((project_root / "index.html").resolve(), run_dir)).as_posix()
+            index_href = Path(os.path.relpath((external_runs_dir / "index.html").resolve(), run_dir)).as_posix()
             self.assertIn(f'href="{index_href}"', summary_html)
 
-            index_html = (project_root / "index.html").read_text(encoding="utf-8")
-            summary_href = Path(os.path.relpath(run_dir / "summary.html", project_root.resolve())).as_posix()
+            index_html = (external_runs_dir / "index.html").read_text(encoding="utf-8")
+            summary_href = Path(os.path.relpath(run_dir / "summary.html", external_runs_dir.resolve())).as_posix()
             self.assertIn(f'href="{summary_href}"', index_html)
 
     def test_index_groups_existing_summaries_by_run_type_newest_first(self) -> None:
@@ -205,6 +206,7 @@ class RunnerTest(unittest.TestCase):
             )
 
             index_path = summary_module.rebuild_index(project_root)
+            self.assertEqual(index_path, (project_root / "runs" / "index.html").resolve())
             index_html = index_path.read_text(encoding="utf-8")
 
             self.assertEqual(index_html.count('class="run-group"'), 2)
