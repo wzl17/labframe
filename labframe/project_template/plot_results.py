@@ -71,7 +71,6 @@ def plot_results(run_dir: Path) -> None:
         axis.set(
             xlabel=x_label,
             ylabel=y_label,
-            title="Rabi flop",
         )
         if reference_y_name == "excited_state_probability":
             axis.set_ylim(-0.05, 1.05)
