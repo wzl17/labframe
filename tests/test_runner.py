@@ -102,9 +102,15 @@ class RunnerTest(unittest.TestCase):
                 self.assertGreater(fitted["time_s"].size, data["time_s"].size)
                 self.assertEqual(float(fitted["time_s"][0]), float(data["time_s"][0]))
                 self.assertEqual(float(fitted["time_s"][-1]), float(data["time_s"][-1]))
+                time_s = data["time_s"]
                 probability = data["excited_state_probability"]
+                fitted_time_s = fitted["time_s"]
                 fitted_probability = fitted["excited_state_probability"]
             self.assertGreater(fitted_probability.size, probability.size)
+            interpolated_fit = np.interp(time_s, fitted_time_s, fitted_probability)
+            residual_sum_squares = np.sum((probability - interpolated_fit) ** 2)
+            total_sum_squares = np.sum((probability - probability.mean()) ** 2)
+            self.assertGreater(1.0 - residual_sum_squares / total_sum_squares, 0.999)
 
             fit_models = _load_module("generated_fit_models", project_root / "fit_models.py")
             for name in (
@@ -352,7 +358,9 @@ class RunnerTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary_directory:
             project_root = self._project(Path(temporary_directory))
             workflow_path = project_root / "workflow.py"
-            workflow_path.write_text(workflow_path.read_text(encoding="utf-8") + "\n# launch change\n", encoding="utf-8")
+            workflow_path.write_text(
+                workflow_path.read_text(encoding="utf-8") + "\n# launch change\n", encoding="utf-8"
+            )
 
             with (
                 patch("labframe.runner._collect_notes", return_value="Commit-mode **note**") as collect,

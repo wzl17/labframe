@@ -43,23 +43,24 @@ def rabi_flop(workflow: dict, results_dir: Path) -> None:
 
     results_dir.mkdir(parents=True, exist_ok=True)
     np.savez(
-        results_dir / "rabi_flop.npz",
+        results_dir / f"{workflow['type']}.npz",
         time_s=time_s,
         excited_state_probability=excited_state_probability,
     )
-    fit_rabi_flop(results_dir, angular_rabi_frequency)
+    fit_rabi_flop(workflow, results_dir)
 
 
 def fit_rabi_flop(
+    workflow: dict,
     results_dir: Path,
-    angular_rabi_frequency: float,
 ) -> None:
     """Read the saved Rabi result and save a smooth fitted curve."""
-    with np.load(results_dir / "rabi_flop.npz", allow_pickle=False) as data:
+    with np.load(results_dir / f"{workflow['type']}.npz", allow_pickle=False) as data:
         time_s = np.asarray(data["time_s"], dtype=float)
         excited_state_probability = np.asarray(data["excited_state_probability"], dtype=float)
 
     parameters = sine_offset_model.make_params()
+    angular_rabi_frequency = 2.0 * np.pi * float(workflow["rabi_frequency_Hz"])
     parameters["amplitude"].set(value=0.5, min=0.0, max=1.0, vary=True)
     parameters["frequency"].set(
         value=angular_rabi_frequency,
@@ -75,7 +76,7 @@ def fit_rabi_flop(
     fit_time_s = np.linspace(float(time_s[0]), float(time_s[-1]), fit_points)
     fitted_probability = np.asarray(fit.eval(x=fit_time_s), dtype=float)
     np.savez(
-        results_dir / "rabi_flop_fit.npz",
+        results_dir / f"{workflow['type']}_fit.npz",
         time_s=fit_time_s,
         excited_state_probability=fitted_probability,
     )
