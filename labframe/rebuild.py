@@ -40,10 +40,10 @@ def _load_summary_module(project_root: Path):
     return module
 
 
-def _read_completed_run(run_dir: Path) -> str | None:
+def _read_completed_run(run_dir: Path, *, require_figures: bool = True) -> str | None:
     required_files = ("config.yaml", "meta.json", "output.log")
     missing = [name for name in required_files if not (run_dir / name).is_file()]
-    required_directories = ("results", "figures")
+    required_directories = ("results", "figures") if require_figures else ("results",)
     missing.extend(name for name in required_directories if not (run_dir / name).is_dir())
     if missing:
         return f"missing {', '.join(missing)}"

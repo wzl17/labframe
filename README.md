@@ -202,7 +202,7 @@ my-experiment/
 | `.labframe.yaml` | Project settings: `runs_dir` is the run-artifact directory selected by `labframe init --runs-dir`, and `commit` is the default Git commit mode for `labframe run`. New projects use `commit: false`. |
 | `configs/default.yaml` | Normal project configuration. `labframe run` selects this file when no configuration is given. |
 | `configs/smoke.yaml` | Small, fast configuration for validating the complete workflow. |
-| `runs/` | Default location containing one immutable artifact directory per run. It is absent when `--runs-dir` selects another location. Generated contents are ignored by Git. |
+| `runs/` | Default location containing one artifact directory per run. It is absent when `--runs-dir` selects another location. Generated contents are ignored by Git. |
 | `runs/.gitkeep` | Keeps the initially empty `runs/` directory in Git. |
 | `workflow.py` | Reads the selected configuration, runs the configured workflow, writes numerical data to `results/`, and performs fitting examples. |
 | `fit_models.py` | Defines reusable lmfit model objects imported by `workflow.py`. Parameter values, bounds, and `vary` settings stay in `workflow.py`. |
@@ -296,7 +296,7 @@ uv run labframe run configs/smoke.yaml --no-notes-prompt
 
 After the data pipeline succeeds, an interactive terminal prompts for optional Markdown notes. Enter paragraphs, lists, fenced code, or links, then finish with a line containing only `.`. Non-interactive execution never prompts and saves empty notes unless `--notes` supplies content. EOF or an interruption at this optional prompt skips notes without changing the successful run status.
 
-Completed run contents are immutable except for `notes.md`, which is the intentionally editable annotation file. Results, figures, configuration, metadata, and logs must not be changed. In commit mode, Labframe runs from the captured launch source, advances the branch only after success, and records that source commit in the run metadata. If the run fails, it does not commit or advance the branch.
+Saved results, configuration, metadata, and logs are immutable. `notes.md` is the intentionally editable annotation file, while figures and summaries are derived artifacts that change only through the explicit regeneration commands described below. In commit mode, Labframe runs from the captured launch source, advances the branch only after success, and records that source commit in the run metadata. If the run fails, it does not commit or advance the branch.
 
 ### Run output
 
@@ -329,6 +329,22 @@ runs/
 | `index.html` | Standalone run-directory home page linking all run summaries and grouping them by configured run type. It is regenerated after each successful run and is stored beside the run folders. |
 
 Open `index.html` directly in a browser; no local server is required. Runs appear newest first within groups. The generated starter reads the group from `workflow.type`; customized projects may instead use top-level `run_type` or top-level `type`.
+
+### Regenerate plots from saved results
+
+After changing `plot_results.py`, regenerate one completed run's figures without rerunning its workflow or fitting:
+
+```bash
+uv run labframe plot runs/20260812-143000_a1b2c3d4
+
+# A run name is resolved inside the configured runs directory.
+uv run labframe plot 20260812-143000_a1b2c3d4
+
+# Run from elsewhere or select a project explicitly.
+uv run labframe plot 20260812-143000_a1b2c3d4 --project /path/to/my-experiment
+```
+
+`RUN` may be a run name, a project-relative path, or an absolute path, but it must resolve to a direct child of the `runs_dir` configured in `.labframe.yaml`. The run must have completed successfully. Labframe calls the current project's `plot_results.py:plot_results` hook against the saved `results/`, stages a completely new `figures/` directory, and replaces the old figures only after plotting succeeds. It then rebuilds that run's `summary.md`, `summary.html`, and the configured run directory's `index.html`. Saved results, workflow output, configuration, metadata, and notes are not changed.
 
 ### Refresh summaries after editing notes
 

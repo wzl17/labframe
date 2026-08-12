@@ -5,6 +5,7 @@ from pathlib import Path
 
 from labframe import __version__
 from labframe.project import find_project_root, initialize_project, project_commit_default
+from labframe.replot import regenerate_plots
 from labframe.runner import run_project
 
 
@@ -78,6 +79,18 @@ def _build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="skip the optional interactive notes prompt",
     )
+
+    plot_parser = subparsers.add_parser("plot", help="regenerate one completed run's figures from saved results")
+    plot_parser.add_argument(
+        "run",
+        type=Path,
+        help="run name or path inside the configured runs directory",
+    )
+    plot_parser.add_argument(
+        "--project",
+        type=Path,
+        help="project root; otherwise search upward from the current directory",
+    )
     return parser
 
 
@@ -116,6 +129,17 @@ def main() -> None:
         except ValueError:
             displayed_run_dir = run_dir
         print(displayed_run_dir)
+        return
+
+    if args.command == "plot":
+        project_root = args.project.resolve() if args.project else find_project_root(Path.cwd())
+        run_dir, index_path = regenerate_plots(project_root, args.run)
+        try:
+            displayed_run_dir = run_dir.relative_to(project_root)
+        except ValueError:
+            displayed_run_dir = run_dir
+        print(f"Regenerated plots in {displayed_run_dir}")
+        print(f"Rebuilt {index_path}")
         return
 
     parser.error(f"unknown command: {args.command}")

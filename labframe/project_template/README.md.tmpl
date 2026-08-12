@@ -52,7 +52,7 @@ After a successful run, the summary hook also rebuilds `index.html` in the confi
 
 At an interactive terminal, Labframe asks for optional Markdown notes after the workflow and plotting stages succeed. Enter multiline Markdown, then finish with a line containing only `.`. Use `--notes TEXT` to provide notes non-interactively, or `--no-notes-prompt` to explicitly save empty notes. Non-interactive runs never wait for input, and EOF or interruption at the optional prompt does not turn a successful computation into a failed run.
 
-`notes.md` contains only the user-authored Markdown and is rendered into both summaries. It is the one intentionally editable file in a completed run. Results, figures, configuration, metadata, and logs remain immutable.
+`notes.md` contains only the user-authored Markdown and is rendered into both summaries. Results, configuration, metadata, and logs remain immutable. Figures and summaries are derived artifacts that change only through the explicit regeneration commands below.
 
 For normal work, copy or edit a configuration and run it explicitly:
 
@@ -79,7 +79,16 @@ runs_dir: runs
 commit: false
 ```
 
-New projects use clean, no-commit runs by default. Use `--commit` or `--no-commit` to override this setting for one invocation. Commit mode records the source state used at launch and commits changed launch source only after the run succeeds. Completed run folders are immutable records except for later edits to `notes.md`.
+New projects use clean, no-commit runs by default. Use `--commit` or `--no-commit` to override this setting for one invocation. Commit mode records the source state used at launch and commits changed launch source only after the run succeeds. Saved results, configuration, metadata, and logs remain immutable after completion.
+
+After changing `plot_results.py`, regenerate one completed run's figures from its saved results:
+
+```bash
+uv run labframe plot runs/20260812-143000_a1b2c3d4
+uv run labframe plot 20260812-143000_a1b2c3d4 --project /path/to/this-project
+```
+
+The run may be given by name, project-relative path, or absolute path, but it must be a direct child of the configured `runs_dir` and have completed successfully. The command never calls the workflow or fitting code. It stages and atomically replaces the complete `figures/` directory, then rebuilds the affected summaries and the run index. A plotting failure leaves the previous figures untouched.
 
 After editing notes, refresh all completed summaries and the index without rerunning any computation:
 
