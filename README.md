@@ -243,6 +243,14 @@ configuration -> workflow and fitting -> saved results -> figures -> summaries
 
 Fitting, plotting, and summary generation use saved artifacts; they do not rerun the simulation or experiment.
 
+Workflow code may parallelize Python work with `multiprocessing` or
+`concurrent.futures.ProcessPoolExecutor`, including the cross-platform `spawn`
+start method. Define worker functions at module scope in `workflow.py` or
+another importable project module, pass serializable arguments and return
+values, and close or await every worker pool before `run_workflow` returns.
+Workers inherit the project import path, while the workflow must still write
+all durable output into the supplied `results/` directory.
+
 ### `labframe run` arguments and options
 
 | Argument or option | Meaning |

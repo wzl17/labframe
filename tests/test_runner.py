@@ -159,6 +159,59 @@ class RunnerTest(unittest.TestCase):
                 "",
             )
 
+    def test_run_supports_spawned_process_pool_tasks_defined_in_workflow(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            project_root = self._project(Path(temporary_directory))
+            (project_root / "workflow.py").write_text(
+                '''"""Workflow exercising spawn-based Python task parallelism."""
+
+from concurrent.futures import ProcessPoolExecutor
+import multiprocessing
+from pathlib import Path
+
+import numpy as np
+
+
+def square(value: int) -> int:
+    """Return one independently computed result."""
+    return value * value
+
+
+def run_workflow(config: dict, results_dir: Path) -> None:
+    """Run importable task functions in spawned Python workers."""
+    values = list(range(8))
+    context = multiprocessing.get_context("spawn")
+    with ProcessPoolExecutor(max_workers=2, mp_context=context) as executor:
+        squared = list(executor.map(square, values))
+
+    results_dir.mkdir(parents=True, exist_ok=True)
+    np.savez(
+        results_dir / "parallel_tasks.npz",
+        value=np.asarray(values, dtype=float),
+        squared=np.asarray(squared, dtype=float),
+    )
+    print(f"parallel results: {squared}")
+''',
+                encoding="utf-8",
+            )
+
+            run_dir = run_project(
+                project_root,
+                Path("configs/smoke.yaml"),
+                commit=True,
+                message="Test parallel workflow",
+                yes=True,
+                notes="",
+            )
+
+            with np.load(run_dir / "results" / "parallel_tasks.npz", allow_pickle=False) as results:
+                np.testing.assert_array_equal(results["value"], np.arange(8, dtype=float))
+                np.testing.assert_array_equal(results["squared"], np.arange(8, dtype=float) ** 2)
+            output = (run_dir / "output.log").read_text(encoding="utf-8")
+            self.assertIn("parallel results: [0, 1, 4, 9, 16, 25, 36, 49]", output)
+            self.assertTrue((run_dir / "figures" / "combined_results.png").is_file())
+            self.assertEqual(json.loads((run_dir / "meta.json").read_text())["status"], "completed")
+
     def test_run_uses_external_directory_configured_during_initialization(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
             parent = Path(temporary_directory)

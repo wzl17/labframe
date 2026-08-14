@@ -11,7 +11,6 @@ import sys
 import tarfile
 import tempfile
 import time
-import uuid
 from contextlib import contextmanager, redirect_stderr, redirect_stdout
 from datetime import datetime
 from pathlib import Path
@@ -113,11 +112,23 @@ def _new_run_dir(runs_dir: Path, config_bytes: bytes) -> Path:
 @contextmanager
 def _project_on_path(project_root: Path):
     original = list(sys.path)
+    hook_module_names = {Path(filename).stem for filename, _ in PROJECT_HOOKS.values()}
+    displaced_hook_modules = {name: sys.modules.pop(name) for name in hook_module_names if name in sys.modules}
     sys.path.insert(0, str(project_root))
     try:
         yield
     finally:
         sys.path[:] = original
+        for name, module in list(sys.modules.items()):
+            module_file = getattr(module, "__file__", None)
+            if module_file is None:
+                continue
+            try:
+                Path(module_file).resolve().relative_to(project_root)
+            except ValueError:
+                continue
+            sys.modules.pop(name, None)
+        sys.modules.update(displaced_hook_modules)
 
 
 def _load_hook(project_root: Path, hook_name: str):
@@ -125,12 +136,21 @@ def _load_hook(project_root: Path, hook_name: str):
     path = project_root / filename
     if not path.is_file():
         raise FileNotFoundError(f"Missing {hook_name} hook file: {path}")
-    module_name = f"_labframe_{hook_name}_{uuid.uuid4().hex}"
+    module_name = path.stem
     spec = importlib.util.spec_from_file_location(module_name, path)
     if spec is None or spec.loader is None:
         raise ImportError(f"Cannot load {path}")
     module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
+    previous_module = sys.modules.get(module_name)
+    sys.modules[module_name] = module
+    try:
+        spec.loader.exec_module(module)
+    except BaseException:
+        if previous_module is None:
+            sys.modules.pop(module_name, None)
+        else:
+            sys.modules[module_name] = previous_module
+        raise
     function = getattr(module, function_name, None)
     if not callable(function):
         raise TypeError(f"{filename} must define callable {function_name}()")

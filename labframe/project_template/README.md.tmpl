@@ -33,6 +33,14 @@ pyproject.toml     Standalone dependencies; omitted by `labframe init --no-venv`
 
 The starter's `workflow.py` saves `rabi_flop.npz`, reads it back for fitting, and saves a densely sampled `rabi_flop_fit.npz`. Plotting and summary generation consume those files without rerunning the workflow.
 
+`run_workflow` may use `multiprocessing` or
+`concurrent.futures.ProcessPoolExecutor`, including the cross-platform `spawn`
+start method. Define worker functions at module scope in `workflow.py` or
+another importable project module, pass serializable arguments and return
+values, and close or await every worker pool before `run_workflow` returns.
+Workers inherit this project on their import path. Keep all durable workflow
+output in the supplied `results/` directory.
+
 ## Run output
 
 Every invocation creates `<runs-dir>/<timestamp>_<config-hash>/`, where `<runs-dir>` is configured in `.labframe.yaml` and defaults to `runs/`:
