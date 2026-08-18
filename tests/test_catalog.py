@@ -224,6 +224,10 @@ class CatalogTest(unittest.TestCase):
             self.assertIn('show.textContent = "Show"', document)
             self.assertIn("function savedState()", document)
             self.assertIn("history.replaceState", document)
+            self.assertIn("sessionStorage.getItem(storageKey)", document)
+            self.assertIn("sessionStorage.setItem(storageKey, serialized)", document)
+            self.assertIn("function preserveStateForBacklink()", document)
+            self.assertIn('window.name = ""', document)
             self.assertIn("selectType(initialState)", document)
 
 

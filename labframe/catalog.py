@@ -193,9 +193,30 @@ def _render_index(project_name: str, records: list[dict]) -> str:
   const pageStatus = document.getElementById("page-status");
   const previousPage = document.getElementById("previous-page");
   const nextPage = document.getElementById("next-page");
+  const windowNamePrefix = "labframe.catalog.state:";
+  const storageKey = `labframe.catalog.state:${location.pathname}`;
 
   function savedState() {
-    const encoded = new URLSearchParams(location.hash.slice(1)).get("state");
+    let navigationState = null;
+    if (window.name.startsWith(windowNamePrefix)) {
+      try {
+        navigationState = JSON.parse(window.name.slice(windowNamePrefix.length));
+      } catch {
+        navigationState = null;
+      }
+      window.name = "";
+    }
+    let encoded = new URLSearchParams(location.hash.slice(1)).get("state");
+    if (!encoded) {
+      try {
+        encoded = sessionStorage.getItem(storageKey);
+      } catch {
+        encoded = null;
+      }
+    }
+    if (!encoded && navigationState && navigationState.path === location.pathname) {
+      encoded = navigationState.state;
+    }
     if (!encoded) return null;
     try {
       const state = JSON.parse(encoded);
@@ -212,8 +233,20 @@ def _render_index(project_name: str, records: list[dict]) -> str:
       value: row._value.value,
     }));
     const state = {version: 1, type: typeSelect.value, filters, page};
-    const fragment = new URLSearchParams({state: JSON.stringify(state)}).toString();
+    const serialized = JSON.stringify(state);
+    try {
+      sessionStorage.setItem(storageKey, serialized);
+    } catch {
+      // The URL fragment remains available when local-file storage is disabled.
+    }
+    const fragment = new URLSearchParams({state: serialized}).toString();
     history.replaceState(null, "", `#${fragment}`);
+  }
+
+  function preserveStateForBacklink() {
+    const state = new URLSearchParams(location.hash.slice(1)).get("state");
+    if (!state) return;
+    window.name = windowNamePrefix + JSON.stringify({path: location.pathname, state});
   }
 
   function addOption(select, value, label = value) {
@@ -397,6 +430,7 @@ def _render_index(project_name: str, records: list[dict]) -> str:
       link.className = "run-link";
       link.href = run.summary_href;
       link.textContent = run.run_id;
+      link.addEventListener("click", preserveStateForBacklink);
       runCell.append(link);
       row.append(runCell);
       appendCell(row, run.started_at || "—");
