@@ -194,6 +194,28 @@ def _render_index(project_name: str, records: list[dict]) -> str:
   const previousPage = document.getElementById("previous-page");
   const nextPage = document.getElementById("next-page");
 
+  function savedState() {
+    const encoded = new URLSearchParams(location.hash.slice(1)).get("state");
+    if (!encoded) return null;
+    try {
+      const state = JSON.parse(encoded);
+      return state && state.version === 1 ? state : null;
+    } catch {
+      return null;
+    }
+  }
+
+  function persistState() {
+    const filters = [...filterList.children].map(row => ({
+      path: row._key.value,
+      operator: row._operator.value,
+      value: row._value.value,
+    }));
+    const state = {version: 1, type: typeSelect.value, filters, page};
+    const fragment = new URLSearchParams({state: JSON.stringify(state)}).toString();
+    history.replaceState(null, "", `#${fragment}`);
+  }
+
   function addOption(select, value, label = value) {
     const option = document.createElement("option");
     option.value = value;
@@ -270,7 +292,7 @@ def _render_index(project_name: str, records: list[dict]) -> str:
     row._value = control;
   }
 
-  function addFilterRow() {
+  function addFilterRow(savedFilter = null) {
     const row = document.createElement("div");
     row.className = "filter-row";
     const key = document.createElement("select");
@@ -292,8 +314,16 @@ def _render_index(project_name: str, records: list[dict]) -> str:
     remove.addEventListener("click", () => { row.remove(); renderResults(true); });
     row.append(key, operator, valueCell, remove);
     filterList.append(row);
+    if (savedFilter && parameterPaths.includes(savedFilter.path)) key.value = savedFilter.path;
     configureFilterRow(row);
-    key.focus();
+    if (savedFilter && [...operator.options].some(option => option.value === savedFilter.operator)) {
+      operator.value = savedFilter.operator;
+      configureValue(row, row._value.dataset.kind);
+    }
+    if (savedFilter && typeof savedFilter.value === "string" && !row._value.disabled) {
+      row._value.value = savedFilter.value;
+    }
+    if (!savedFilter) key.focus();
   }
 
   function activeFilters() {
@@ -404,23 +434,32 @@ def _render_index(project_name: str, records: list[dict]) -> str:
     pageStatus.textContent = filteredRuns.length ? `${start + 1}–${Math.min(start + pageSize, filteredRuns.length)} of ${filteredRuns.length}` : "";
     previousPage.disabled = page === 1;
     nextPage.disabled = page === pageCount;
+    persistState();
   }
 
-  function selectType() {
+  function selectType(state = null) {
     selectedRuns = runs.filter(run => run.workflow_type === typeSelect.value);
     parameterPaths = [...new Set(selectedRuns.flatMap(run => Object.keys(run.parameters)))].sort((a, b) => a.localeCompare(b));
     filterList.replaceChildren();
+    if (state && Array.isArray(state.filters)) {
+      for (const filter of state.filters) addFilterRow(filter);
+    }
     typeCount.textContent = `${selectedRuns.length} run${selectedRuns.length === 1 ? "" : "s"}`;
     document.getElementById("add-filter").disabled = parameterPaths.length === 0;
-    renderResults(true);
+    page = state && Number.isInteger(state.page) && state.page > 0 ? state.page : 1;
+    renderResults(false);
   }
 
-  typeSelect.addEventListener("change", selectType);
-  document.getElementById("add-filter").addEventListener("click", addFilterRow);
+  typeSelect.addEventListener("change", () => selectType());
+  document.getElementById("add-filter").addEventListener("click", () => { addFilterRow(); renderResults(true); });
   document.getElementById("reset-filters").addEventListener("click", () => { filterList.replaceChildren(); renderResults(true); });
   previousPage.addEventListener("click", () => { page -= 1; renderResults(false); });
   nextPage.addEventListener("click", () => { page += 1; renderResults(false); });
-  selectType();
+  const initialState = savedState();
+  if (initialState && [...typeSelect.options].some(option => option.value === initialState.type)) {
+    typeSelect.value = initialState.type;
+  }
+  selectType(initialState);
 })();
 </script></main></body></html>
 """

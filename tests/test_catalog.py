@@ -222,6 +222,9 @@ class CatalogTest(unittest.TestCase):
             self.assertIn("filters.every", document)
             self.assertIn("parameterPaths = [...new Set", document)
             self.assertIn('show.textContent = "Show"', document)
+            self.assertIn("function savedState()", document)
+            self.assertIn("history.replaceState", document)
+            self.assertIn("selectType(initialState)", document)
 
 
 if __name__ == "__main__":
