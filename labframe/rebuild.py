@@ -10,6 +10,7 @@ from pathlib import Path
 
 import yaml
 
+from labframe.catalog import synchronize_catalog
 from labframe.project import PROJECT_HOOKS, find_project_root, is_project_root, project_runs_dir
 
 
@@ -35,8 +36,6 @@ def _load_summary_module(project_root: Path):
         spec.loader.exec_module(module)
     if not callable(getattr(module, "build_summary", None)):
         raise TypeError(f"{filename} must define callable build_summary()")
-    if not callable(getattr(module, "rebuild_index", None)):
-        raise TypeError(f"{filename} must define callable rebuild_index()")
     return module
 
 
@@ -59,6 +58,12 @@ def _read_completed_run(run_dir: Path, *, require_figures: bool = True) -> str |
         return "meta.json is not an object"
     if meta.get("status") != "completed":
         return f"status is {meta.get('status', 'missing')!r}"
+    workflow = config.get("workflow")
+    if not isinstance(workflow, dict):
+        return "workflow is not a mapping"
+    workflow_type = workflow.get("type")
+    if not isinstance(workflow_type, str) or not workflow_type:
+        return "workflow.type is missing or is not a non-empty string"
     return None
 
 
@@ -90,9 +95,8 @@ def rebuild_project(project_root: Path) -> tuple[Path, int, int]:
             continue
         refreshed += 1
 
-    with _project_on_path(project_root):
-        index_path = module.rebuild_index(project_root, runs_dir)
-    return index_path, refreshed, skipped
+    catalog_result = synchronize_catalog(project_root, runs_dir, warn=True)
+    return catalog_result.index_path, refreshed, skipped
 
 
 def _build_parser() -> argparse.ArgumentParser:

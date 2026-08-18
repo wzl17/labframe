@@ -17,6 +17,7 @@ from pathlib import Path
 
 import yaml
 
+from labframe.catalog import synchronize_catalog
 from labframe.project import PROJECT_HOOKS, is_project_root, project_runs_dir
 
 
@@ -314,7 +315,6 @@ def run_project(
             _run_summary(source_root, run_dir)
             _advance_branch(project_root, branch, git_commit, starting_commit)
 
-        return run_dir
     except BaseException:
         if run_dir is not None:
             _write_meta(
@@ -332,3 +332,10 @@ def run_project(
     finally:
         if snapshot_temp is not None:
             shutil.rmtree(snapshot_temp)
+
+    assert run_dir is not None
+    try:
+        synchronize_catalog(project_root, runs_dir)
+    except Exception as error:
+        print(f"warning: run completed but catalog refresh failed ({error})", file=sys.stderr)
+    return run_dir

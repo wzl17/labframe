@@ -72,6 +72,7 @@ class ReplotTest(unittest.TestCase):
             )
             self.assertIn("keep this note", (run_dir / "summary.md").read_text(encoding="utf-8"))
             self.assertTrue(index_path.is_file())
+            self.assertIn('id="workflow-type"', index_path.read_text(encoding="utf-8"))
 
     def test_plot_failure_preserves_existing_figures(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:

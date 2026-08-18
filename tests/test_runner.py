@@ -1,6 +1,8 @@
+import contextlib
 import importlib.util
 import json
 import os
+import sqlite3
 import subprocess
 import sys
 import tempfile
@@ -91,6 +93,7 @@ class RunnerTest(unittest.TestCase):
                 "\n\n<script>alert('unsafe')</script>",
             )
             self.assertTrue((project_root / "runs" / "index.html").is_file())
+            self.assertTrue((project_root / "runs" / "catalog.sqlite3").is_file())
             self.assertFalse((project_root / "index.html").exists())
 
             with (
@@ -135,9 +138,9 @@ class RunnerTest(unittest.TestCase):
             self.assertNotIn("<script>", summary_html)
             self.assertIn("&lt;script&gt;alert", summary_html)
             index_html = (project_root / "runs" / "index.html").read_text(encoding="utf-8")
-            self.assertIn('data-run-type="rabi_flop"', index_html)
-            self.assertIn(f'href="{run_dir.name}/summary.html"', index_html)
-            self.assertIn('<span class="run-count">1 run</span>', index_html)
+            self.assertIn('id="workflow-type"', index_html)
+            self.assertIn(f'"run_id":"{run_dir.name}"', index_html)
+            self.assertIn('"workflow_type":"rabi_flop"', index_html)
             self.assertEqual(
                 subprocess.run(
                     ["git", "rev-parse", "HEAD"],
@@ -210,7 +213,13 @@ def run_workflow(config: dict, results_dir: Path) -> None:
             output = (run_dir / "output.log").read_text(encoding="utf-8")
             self.assertIn("parallel results: [0, 1, 4, 9, 16, 25, 36, 49]", output)
             self.assertTrue((run_dir / "figures" / "combined_results.png").is_file())
-            self.assertEqual(json.loads((run_dir / "meta.json").read_text())["status"], "completed")
+            meta = json.loads((run_dir / "meta.json").read_text())
+            self.assertEqual(meta["status"], "completed")
+            with contextlib.closing(sqlite3.connect(project_root / "runs" / "catalog.sqlite3")) as connection:
+                catalog_commit = connection.execute(
+                    "SELECT git_commit FROM runs WHERE run_id = ?", (run_dir.name,)
+                ).fetchone()[0]
+            self.assertEqual(catalog_commit, meta["git_commit"])
 
     def test_run_uses_external_directory_configured_during_initialization(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
@@ -237,61 +246,7 @@ def run_workflow(config: dict, results_dir: Path) -> None:
             self.assertIn(f'href="{index_href}"', summary_html)
 
             index_html = (external_runs_dir / "index.html").read_text(encoding="utf-8")
-            summary_href = Path(os.path.relpath(run_dir / "summary.html", external_runs_dir.resolve())).as_posix()
-            self.assertIn(f'href="{summary_href}"', index_html)
-
-    def test_index_groups_existing_summaries_by_run_type_newest_first(self) -> None:
-        with tempfile.TemporaryDirectory() as temporary_directory:
-            project_root = Path(temporary_directory) / "grouped-runs"
-            initialize_project(project_root, sync=False, initialize_git=False)
-            summary_module = _load_module("generated_grouped_summary", project_root / "build_summary.py")
-            self.assertEqual(summary_module._run_type({"workflow": {"type": "rabi_flop"}}), "rabi_flop")
-            self.assertEqual(summary_module._run_type({"workflow": {"type": "ramsey"}}), "ramsey")
-            self.assertEqual(summary_module._run_type({"acquisition": {"type": "scan"}}), "unknown")
-
-            runs = (
-                ("20260806-100000_aaaaaaaa", "rabi_flop"),
-                ("20260806-110000_bbbbbbbb", "ramsey"),
-                ("20260806-120000_cccccccc", "rabi_flop"),
-            )
-            for position, (name, run_type) in enumerate(runs):
-                run_dir = project_root / "runs" / name
-                run_dir.mkdir()
-                (run_dir / "config.yaml").write_text(
-                    f"workflow:\n  type: {run_type}\n",
-                    encoding="utf-8",
-                )
-                (run_dir / "meta.json").write_text(
-                    json.dumps(
-                        {
-                            "status": "completed",
-                            "started_at": f"2026-08-06T1{position}:00:00+02:00",
-                            "runtime_seconds": position + 0.5,
-                        }
-                    ),
-                    encoding="utf-8",
-                )
-                (run_dir / "summary.html").write_text("summary", encoding="utf-8")
-
-            incomplete_run = project_root / "runs" / "20260806-130000_dddddddd"
-            incomplete_run.mkdir()
-            (incomplete_run / "config.yaml").write_text(
-                "workflow:\n  type: ignored\n",
-                encoding="utf-8",
-            )
-
-            index_path = summary_module.rebuild_index(project_root)
-            self.assertEqual(index_path, (project_root / "runs" / "index.html").resolve())
-            index_html = index_path.read_text(encoding="utf-8")
-
-            self.assertEqual(index_html.count('class="run-group"'), 2)
-            self.assertIn('data-run-type="rabi_flop"', index_html)
-            self.assertIn('data-run-type="ramsey"', index_html)
-            self.assertNotIn("ignored", index_html)
-            self.assertIn('<span class="run-count">2 runs</span>', index_html)
-            newest_rabi = index_html.index("20260806-120000_cccccccc")
-            older_rabi = index_html.index("20260806-100000_aaaaaaaa")
-            self.assertLess(newest_rabi, older_rabi)
+            self.assertIn(f'"summary_href":"{run_dir.name}/summary.html"', index_html)
 
     def test_plot_accepts_results_with_different_x_coordinates(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:

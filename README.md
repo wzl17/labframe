@@ -207,7 +207,7 @@ my-experiment/
 | `workflow.py` | Reads the selected configuration, runs the configured workflow, writes numerical data to `results/`, and performs fitting examples. |
 | `fit_models.py` | Defines reusable lmfit model objects imported by `workflow.py`. Parameter values, bounds, and `vary` settings stay in `workflow.py`. |
 | `plot_results.py` | Reads saved data from `results/` and writes Matplotlib figures to `figures/`. It is the single place for Matplotlib presentation settings. |
-| `build_summary.py` | Builds per-run `summary.md` and `summary.html` files and the run-directory index from saved configuration, metadata, logs, results, and figures. |
+| `build_summary.py` | Builds per-run `summary.md` and `summary.html` files from saved configuration, metadata, logs, results, and figures. Labframe core owns the run catalog and index. |
 | `.gitignore` | Excludes the project environment, Python build files, and generated run contents from Git. |
 | `pyproject.toml` | Declares dependencies and the Labframe source for a standalone project. It is omitted by `--no-venv`. |
 | `uv.lock` | Records the exact dependency resolution produced by `uv sync`. It is omitted by `--no-venv` and initially absent with `--no-sync`. |
@@ -312,6 +312,7 @@ Every successful invocation creates a run folder in the directory configured by 
 
 ```text
 runs/
+├── catalog.sqlite3
 ├── index.html
 └── <timestamp>_<config-hash>/
     ├── results/
@@ -334,9 +335,12 @@ runs/
 | `output.log` | Standard output and error captured from the workflow and plotting stages. |
 | `summary.md` | Markdown report built from the saved artifacts. |
 | `summary.html` | Standalone HTML version of the run report. |
-| `index.html` | Standalone run-directory home page linking all run summaries and grouping them by configured run type. It is regenerated after each successful run and is stored beside the run folders. |
+| `catalog.sqlite3` | Derived, versioned SQLite catalog of completed runs. Run folders remain authoritative; deleting this file causes Labframe to rebuild it. |
+| `index.html` | Self-contained searchable catalog generated from SQLite after successful runs, plot regeneration, and explicit index refresh. |
 
-Open `index.html` directly in a browser; no local server is required. Runs appear newest first within groups. The generated starter reads the group from `workflow.type`; customized projects may instead use top-level `run_type` or top-level `type`.
+Open `index.html` directly in a browser; no local server is required and the browser does not connect to SQLite. Runs are grouped by the required `workflow.type`. Selecting a type exposes the union of scalar values saved directly in that type's `workflow` mappings. Filters are type-aware, combine with AND, and include `is present` and `is missing`; a parameter absent from an older run remains “not recorded,” and Labframe does not infer project defaults.
+
+Synchronization is incremental: an already cataloged folder name is not reopened, while new completed folders are validated and inserted in one transaction and rows for removed folders are deleted. Folder names are the stable run IDs, so links remain relative and work for external `runs_dir` locations. The database and HTML page are ignored derived artifacts, not canonical run data.
 
 ### Regenerate plots from saved results
 
@@ -352,7 +356,7 @@ uv run labframe plot 20260812-143000_a1b2c3d4
 uv run labframe plot 20260812-143000_a1b2c3d4 --project /path/to/my-experiment
 ```
 
-`RUN` may be a run name, a project-relative path, or an absolute path, but it must resolve to a direct child of the `runs_dir` configured in `.labframe.yaml`. The run must have completed successfully. Labframe calls the current project's `plot_results.py:plot_results` hook against the saved `results/`, stages a completely new `figures/` directory, and replaces the old figures only after plotting succeeds. It then rebuilds that run's `summary.md`, `summary.html`, and the configured run directory's `index.html`. Saved results, workflow output, configuration, metadata, and notes are not changed.
+`RUN` may be a run name, a project-relative path, or an absolute path, but it must resolve to a direct child of the `runs_dir` configured in `.labframe.yaml`. The run must have completed successfully. Labframe calls the current project's `plot_results.py:plot_results` hook against the saved `results/`, stages a completely new `figures/` directory, and replaces the old figures only after plotting succeeds. It then rebuilds that run's `summary.md` and `summary.html` and synchronizes the core catalog and index. Saved results, workflow output, configuration, metadata, and notes are not changed.
 
 ### Refresh summaries after editing notes
 
@@ -366,6 +370,8 @@ uv run labframe-update-index --project /path/to/my-experiment
 ```
 
 The command searches upward for a Labframe project when `--project` is omitted. It reads `.labframe.yaml`, so an absolute external `runs_dir` is refreshed in place and the summary/index links remain relative and directly browsable. It uses only saved configuration, metadata, logs, results, figures, and notes; it never calls workflow, fitting, simulation, experiment, or plotting hooks. Incomplete or malformed run directories are skipped with warnings, and a project with no completed runs still receives the normal empty index. Existing runs without `notes.md` migrate the content of their current `# Notes` summary section instead of restoring the old instructional placeholder.
+
+Projects generated by older Labframe versions may still have `build_summary.py` call its copied `rebuild_index()` function. Labframe core overwrites that legacy page with the catalog page before the command finishes, so completed run folders require no migration. Remove the old `rebuild_index()` function and its call when updating the project hook to eliminate the redundant full-directory scan.
 
 ## 4. Customize a generated project
 
@@ -381,4 +387,4 @@ The hook contracts are:
 
 - The workflow hook receives the parsed configuration and the run's `results/` path. It writes all numerical output there. Fitting belongs in this stage and consumes saved results.
 - The plotting hook receives the run path, reads `results/`, and writes figures into `figures/`.
-- The summary hook receives the run path and builds reports plus the run-directory index only from saved configuration, metadata, logs, results, figures, and `notes.md`.
+- The summary hook receives the run path and builds only the per-run reports from saved configuration, metadata, logs, results, figures, and `notes.md`. Labframe core builds the run catalog and index.

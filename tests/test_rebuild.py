@@ -57,7 +57,7 @@ class RebuildTest(unittest.TestCase):
             self.assertIn("<strong>after</strong>", (older / "summary.html").read_text(encoding="utf-8"))
             index_html = index_path.read_text(encoding="utf-8")
             self.assertLess(index_html.index(newer.name), index_html.index(older.name))
-            self.assertIn('<span class="run-count">2 runs</span>', index_html)
+            self.assertIn('"workflow_type":"rabi"', index_html)
 
     def test_external_runs_links_zero_runs_and_malformed_entries(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
@@ -69,7 +69,7 @@ class RebuildTest(unittest.TestCase):
             index_path, refreshed, skipped = rebuild_project(project_root)
             self.assertEqual((refreshed, skipped), (0, 0))
             self.assertTrue(index_path.is_file())
-            self.assertIn("No run summaries", index_path.read_text(encoding="utf-8"))
+            self.assertIn("No completed runs", index_path.read_text(encoding="utf-8"))
 
             valid = self._run(project_root, runs_dir, "20260806-100000_valid run", "scan", "External")
             malformed = runs_dir / "20260806-110000_malformed"

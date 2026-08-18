@@ -3,6 +3,7 @@
 import tempfile
 from pathlib import Path
 
+from labframe.catalog import synchronize_catalog
 from labframe.project import is_project_root, project_runs_dir
 from labframe.rebuild import _load_summary_module, _read_completed_run
 from labframe.runner import _load_hook, _project_on_path
@@ -72,5 +73,5 @@ def regenerate_plots(project_root: Path, requested_run: Path) -> tuple[Path, Pat
     summary_module = _load_summary_module(project_root)
     with _project_on_path(project_root):
         summary_module.build_summary(run_dir)
-        index_path = summary_module.rebuild_index(project_root, runs_dir)
-    return run_dir, index_path
+    catalog_result = synchronize_catalog(project_root, runs_dir)
+    return run_dir, catalog_result.index_path

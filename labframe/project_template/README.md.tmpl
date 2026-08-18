@@ -1,6 +1,6 @@
 # {{PROJECT_NAME}}
 
-This project was created by Labframe. The starter is a complete Rabi-flop example: QuTiP produces saved numerical data, lmfit fits those saved data, Matplotlib creates a combined figure, and the summary hook writes Markdown and HTML reports plus a project home page for all runs.
+This project was created by Labframe. The starter is a complete Rabi-flop example: QuTiP produces saved numerical data, lmfit fits those saved data, Matplotlib creates a combined figure, and the summary hook writes per-run Markdown and HTML reports. Labframe core builds the searchable run catalog.
 
 ## Smoke test
 
@@ -23,7 +23,7 @@ The smoke configuration is intentionally small. New projects use no-commit mode 
 ```text
 configs/           YAML run configurations
 .labframe.yaml     Run-artifact directory and default Git commit settings
-runs/              Default run-artifact directory, including index.html (ignored by Git)
+runs/              Default run artifacts, catalog.sqlite3, and index.html (ignored by Git)
 workflow.py        Workflow dispatch, saved results, and fitting examples
 fit_models.py      Reusable lmfit model objects
 plot_results.py    Figures built from saved results
@@ -56,7 +56,7 @@ summary.md
 summary.html
 ```
 
-After a successful run, the summary hook also rebuilds `index.html` in the configured run directory, including when that directory is outside the project. Open it directly in a browser to view completed runs grouped by the configured run type. Each per-run HTML summary links back to this home page.
+After a successful run, Labframe incrementally synchronizes `catalog.sqlite3` and rebuilds `index.html` in the configured run directory, including when that directory is outside the project. Open the self-contained HTML file directly in a browser to select the required `workflow.type` and combine typed filters over scalar values recorded in the saved `workflow` mappings. Available parameters are the union recorded for the selected type; an absent value remains “not recorded,” and project defaults are not inferred. Each per-run HTML summary links back to this page. Run folders are authoritative, while the database and page are rebuildable derived files.
 
 At an interactive terminal, Labframe asks for optional Markdown notes after the workflow and plotting stages succeed. Enter multiline Markdown, then finish with a line containing only `.`. Use `--notes TEXT` to provide notes non-interactively, or `--no-notes-prompt` to explicitly save empty notes. Non-interactive runs never wait for input, and EOF or interruption at the optional prompt does not turn a successful computation into a failed run.
 
@@ -113,4 +113,4 @@ The command searches upward when `--project` is omitted and honors the configure
 - Configure fit parameter values, bounds, and `vary` explicitly in `workflow.py`; do not use model guesses.
 - Keep reusable model objects in `fit_models.py`.
 - Build plots from `results/` and write them to `figures/`.
-- Build summaries and the run index from saved artifacts and `notes.md` only.
+- Build per-run summaries from saved artifacts and `notes.md` only; Labframe core owns the run catalog and index.
