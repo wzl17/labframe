@@ -23,9 +23,9 @@ RC_PARAMS = {
 
 def _load_result(path: Path) -> tuple[str, str, np.ndarray, np.ndarray]:
     with np.load(path, allow_pickle=False) as data:
-        if len(data.files) != 2:
-            raise ValueError(f"{path.name} must contain exactly one x array and one y array")
-        x_name, y_name = data.files
+        if len(data.files) < 2:
+            raise ValueError(f"{path.name} must contain an x array and a y array")
+        x_name, y_name = data.files[:2]
         x_values = np.asarray(data[x_name], dtype=float)
         y_values = np.asarray(data[y_name], dtype=float)
 
